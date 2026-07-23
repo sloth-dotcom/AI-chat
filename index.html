@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;450;500;550;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --accent:#5B7A99;--accent-hover:#4a6480;--accent-soft:rgba(91,122,153,.10);
+    --bg:#FAFAF8;--panel:#FFFFFF;--line:#ECEAE4;--line-strong:#E0DDD5;
+    --text:#1c1b1a;--muted:#8b877f;--muted-2:#a8a49b;
+  }
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{color:var(--accent-hover)}
+  ::selection{background:rgba(91,122,153,.18)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#e2e0da;border-radius:8px;border:3px solid #FAFAF8}
+  ::-webkit-scrollbar-thumb:hover{background:#d3d0c8}
+  button{font-family:inherit}
+  svg{display:block}
+
+  .app{display:flex;height:100vh;width:100%;overflow:hidden;background:var(--bg)}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{flex:none;overflow:hidden;border-right:1px solid var(--line);background:var(--panel);transition:width .22s ease,opacity .18s;width:264px;opacity:1}
+  .app.collapsed .sidebar{width:0;opacity:0}
+  .sidebar-inner{display:flex;flex-direction:column;height:100%;width:264px;min-width:264px}
+
+  .logo-row{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+  .logo-slot{flex:1;height:38px;border:1px dashed #cfccc3;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted-2);font-size:12.5px;font-weight:500;letter-spacing:.04em;background:#fcfbf9}
+
+  .icon-btn{width:34px;height:34px;flex:none;border:1px solid var(--line);background:var(--panel);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+  .icon-btn:hover{background:#f2f0ea;color:var(--text)}
+
+  .ghost-btn{border:none;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer}
+  .ghost-btn:hover{background:#f2f0ea;color:var(--text)}
+
+  .new-chat-wrap{padding:4px 16px 12px}
+  .new-chat{width:100%;height:42px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-weight:550;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:background .15s}
+  .new-chat:hover{background:var(--accent-hover)}
+
+  .search-wrap{padding:0 16px 14px}
+  .search-box{position:relative}
+  .search-box svg{position:absolute;left:12px;top:50%;transform:translateY(-50%)}
+  .search-box input{width:100%;height:38px;padding:0 12px 0 36px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:13.5px;color:var(--text);outline:none;font-family:inherit}
+  .search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+  .sidebar-scroll{flex:1;overflow-y:auto;padding:0 8px 8px}
+  .group{margin-bottom:6px}
+  .group-label{padding:12px 8px 6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2)}
+  .conv-row{display:flex;align-items:center;width:100%;padding:8px;border:none;border-radius:8px;cursor:pointer;font-size:13.5px;text-align:left;color:var(--text);font-weight:450;background:transparent}
+  .conv-row:hover{background:#f2f0ea}
+  .conv-row.active{color:var(--accent);font-weight:550;background:var(--accent-soft)}
+  .conv-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .kb{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+  .kb-head{display:flex;align-items:center;justify-content:space-between;padding:0 8px 6px}
+  .kb-head .group-label{padding:0}
+  .kb-add{width:24px;height:24px;border-radius:6px}
+  .doc-row{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;cursor:default}
+  .doc-row:hover{background:#f2f0ea}
+  .doc-icon{width:30px;height:30px;flex:none;border-radius:7px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+  .doc-body{flex:1;min-width:0}
+  .doc-name{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .doc-meta{font-size:11px;color:var(--muted-2)}
+
+  .user-footer{border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:10px}
+  .avatar{width:34px;height:34px;flex:none;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+  .user-body{flex:1;min-width:0}
+  .user-name{font-size:13px;font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .user-role{font-size:11px;color:var(--muted-2)}
+  .settings-btn{width:32px;height:32px;flex:none;border-radius:7px}
+
+  /* ---------- Main ---------- */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+
+  .topbar{height:56px;flex:none;display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--line);background:rgba(250,250,248,.85);backdrop-filter:blur(8px)}
+  .topbar .show-sidebar{display:none}
+  .app.collapsed .topbar .show-sidebar{display:flex}
+  .thread-title{font-size:14.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .topbar-spacer{flex:1}
+  .eu-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding:5px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+
+  .thread-scroll{flex:1;overflow-y:auto}
+  .thread{max-width:760px;margin:0 auto;padding:36px 24px 24px}
+  .messages{display:flex;flex-direction:column;gap:28px}
+  .msg{display:flex}
+  .msg.user{justify-content:flex-end}
+  .msg.assistant{justify-content:flex-start}
+  .user-bubble{max-width:78%;background:#F1EFEA;border:1px solid var(--line);border-radius:14px 14px 4px 14px;padding:12px 15px;font-size:14.5px;line-height:1.6;white-space:pre-wrap}
+  .assistant-row{display:flex;gap:14px;max-width:100%}
+  .bot-avatar{width:30px;height:30px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-top:2px}
+  .assistant-body{flex:1;min-width:0;font-size:14.5px;line-height:1.68;padding-top:3px}
+  .assistant-text{white-space:pre-wrap}
+  .source-chip{display:inline-flex;align-items:center;gap:7px;margin-top:14px;padding:6px 11px;border:1px solid var(--line-strong);border-radius:8px;background:var(--panel);font-size:12.5px;color:var(--muted)}
+  .source-chip .k{color:var(--muted-2)}
+  .source-chip .v{color:var(--text);font-weight:500}
+
+  .empty-state{padding:64px 0 8px;text-align:center}
+  .empty-icon{width:52px;height:52px;margin:0 auto 20px;border-radius:14px;border:1px solid var(--line);background:var(--panel);display:flex;align-items:center;justify-content:center;color:var(--accent)}
+  .empty-title{font-size:22px;font-weight:600;letter-spacing:-.01em}
+  .empty-sub{font-size:14.5px;color:var(--muted);margin-top:8px}
+
+  /* ---------- Composer ---------- */
+  .composer{flex:none;background:linear-gradient(to top,var(--bg) 60%,rgba(250,250,248,0));padding:0 24px 16px}
+  .composer-inner{max-width:760px;margin:0 auto}
+
+  .suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:0 0 16px}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);background:var(--panel);border-radius:999px;font-size:13px;color:var(--text);cursor:pointer;transition:all .15s}
+  .chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .chip .chip-icon{color:var(--accent);display:inline-flex}
+
+  .model-wrap{position:relative;margin-bottom:10px}
+  .model-btn{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:13px;font-weight:500;color:var(--text);cursor:pointer}
+  .model-btn:hover{background:#f2f0ea}
+  .model-btn .eu-tag{font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);padding:2px 6px;border-radius:5px}
+  .model-btn .caret{transition:transform .18s}
+  .model-btn.open .caret{transform:rotate(180deg)}
+  .model-menu{position:absolute;bottom:calc(100% + 6px);left:0;width:280px;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 8px 28px rgba(28,27,26,.10);padding:6px;z-index:20;display:none}
+  .model-menu.open{display:block}
+  .model-row{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left}
+  .model-row:hover{background:#f2f0ea}
+  .model-row .mr-body{flex:1;text-align:left}
+  .model-name{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:500}
+  .model-pill{font-size:9px;font-weight:700;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);padding:2px 5px;border-radius:4px}
+  .model-desc{font-size:11.5px;color:var(--muted-2);margin-top:1px}
+
+  .input-row{display:flex;align-items:flex-end;gap:10px;border:1px solid var(--line-strong);background:var(--panel);border-radius:14px;padding:8px;transition:border-color .15s}
+  .input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .attach-btn{width:38px;height:38px;flex:none;border-radius:9px}
+  .input-row textarea{flex:1;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:14.5px;line-height:1.5;color:var(--text);padding:9px 4px;max-height:160px}
+  .send-btn{width:38px;height:38px;flex:none;border:none;border-radius:9px;display:flex;align-items:center;justify-content:center;transition:background .15s;background:#E3E1DB;color:#b7b3aa;cursor:not-allowed}
+  .send-btn.ready{background:var(--accent);color:#fff;cursor:pointer}
+  .send-btn.ready:hover{background:var(--accent-hover)}
+
+  .trust-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted-2)}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <div class="logo-row">
+        <div class="logo-slot">Logo</div>
+        <button class="icon-btn" id="collapseBtn" title="Skjul sidepanel">
+          <svg width="17" height="17" viewBox="0 0 256 256" fill="currentColor"><path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16ZM40 56h52v144H40Zm176 144H108V56h108v144Z"/></svg>
+        </button>
+      </div>
+
+      <div class="new-chat-wrap">
+        <button class="new-chat" id="newChatBtn">
+          <svg width="17" height="17" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>
+          Ny chat
+        </button>
+      </div>
+
+      <div class="search-wrap">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 256 256" fill="#a8a49b"><path d="m229.66 218.34-50.07-50.06a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
+          <input id="searchInput" placeholder="Søg i samtaler…" />
+        </div>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div id="groups"></div>
+
+        <div class="kb">
+          <div class="kb-head">
+            <div class="group-label">Vidensbase</div>
+            <button class="ghost-btn kb-add" title="Upload dokument">
+              <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>
+            </button>
+          </div>
+          <div id="docs"></div>
+        </div>
+      </div>
+
+      <div class="user-footer">
+        <div class="avatar">MK</div>
+        <div class="user-body">
+          <div class="user-name">Mette Kristensen</div>
+          <div class="user-role">Konsulent</div>
+        </div>
+        <button class="ghost-btn settings-btn" title="Indstillinger">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.21 107.21 0 0 0-10.88-26.25 8 8 0 0 0-6.34-3.94l-23.87-2.64q-1.48-1.56-3-3l-2.63-23.89a8 8 0 0 0-3.94-6.34 107.71 107.71 0 0 0-26.25-10.87 8 8 0 0 0-7.06 1.49L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48 107.6 107.6 0 0 0-26.25 10.88 8 8 0 0 0-3.94 6.34l-2.64 23.86q-1.56 1.49-3 3L40.55 71.3a8 8 0 0 0-6.34 3.94 107.71 107.71 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L39.84 127v4.32L24.92 149.96a8 8 0 0 0-1.48 7.06 107.21 107.21 0 0 0 10.88 26.25 8 8 0 0 0 6.34 3.94l23.87 2.64q1.48 1.56 3 3l2.63 23.89a8 8 0 0 0 3.94 6.34 107.71 107.71 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216h4.32l18.64 14.92a8 8 0 0 0 7.06 1.48 107.21 107.21 0 0 0 26.25-10.88 8 8 0 0 0 3.94-6.34l2.64-23.87q1.56-1.48 3-3l23.89-2.63a8 8 0 0 0 6.34-3.94 107.71 107.71 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main">
+
+    <header class="topbar">
+      <button class="icon-btn show-sidebar" id="expandBtn" title="Vis sidepanel">
+        <svg width="17" height="17" viewBox="0 0 256 256" fill="currentColor"><path d="M216 40H40a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a16 16 0 0 0-16-16ZM40 56h52v144H40Zm176 144H108V56h108v144Z"/></svg>
+      </button>
+      <div class="thread-title" id="threadTitle"></div>
+      <div class="topbar-spacer"></div>
+      <div class="eu-pill">
+        <svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M208 40H48a16 16 0 0 0-16 16v58.78c0 89.61 75.82 119.34 91 124.39a15.53 15.53 0 0 0 10 0c15.2-5.05 91-34.78 91-124.39V56a16 16 0 0 0-16-16Zm-34.34 69.66-48 48a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L120 140.69l42.34-42.35a8 8 0 0 1 11.32 11.32Z"/></svg>
+        EU-hostet
+      </div>
+    </header>
+
+    <div class="thread-scroll" id="threadScroll">
+      <div class="thread" id="thread"></div>
+    </div>
+
+    <!-- ===================== COMPOSER ===================== -->
+    <div class="composer">
+      <div class="composer-inner">
+
+        <div class="suggestions" id="suggestions"></div>
+
+        <div class="model-wrap">
+          <button class="model-btn" id="modelBtn">
+            <span id="modelName"></span>
+            <span class="eu-tag">EU</span>
+            <svg class="caret" width="14" height="14" viewBox="0 0 256 256" fill="var(--muted)"><path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/></svg>
+          </button>
+          <div class="model-menu" id="modelMenu"></div>
+        </div>
+
+        <div class="input-row">
+          <button class="ghost-btn attach-btn" title="Vedhæft dokument">
+            <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M209.66 122.34a8 8 0 0 1 0 11.32l-82.05 82a56 56 0 0 1-79.2-79.2l84.68-84.69a40 40 0 0 1 56.57 56.57L104.4 193.14a24 24 0 0 1-33.94-33.94L149.66 80a8 8 0 0 1 11.31 11.31L81.8 170.51a8 8 0 0 0 11.31 11.32l84.69-84.69a24 24 0 0 0-33.94-33.94L59.16 148A40 40 0 0 0 115.72 204.55l82.62-82.21a8 8 0 0 1 11.32 0Z"/></svg>
+          </button>
+          <textarea id="draft" rows="1" placeholder="Skriv en besked…"></textarea>
+          <button class="send-btn" id="sendBtn" title="Send">
+            <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M231.87 114 88.15 30.62A16 16 0 0 0 64.42 48.4l16.19 71.6-16.19 71.6a16 16 0 0 0 23.73 17.77L231.87 142a16 16 0 0 0 0-28Zm-135.31 68 12.28-54.34H160a8 8 0 0 0 0-16H108.84L96.56 57.36 219.28 128Z"/></svg>
+          </button>
+        </div>
+
+        <div class="trust-bar">
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M208 40H48a16 16 0 0 0-16 16v58.78c0 89.61 75.82 119.34 91 124.39a15.53 15.53 0 0 0 10 0c15.2-5.05 91-34.78 91-124.39V56a16 16 0 0 0-16-16Z"/></svg>
+          Data forbliver i EU · GDPR-compliant
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ICONS = {
+    doc: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg>',
+    mail: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 48H32a8 8 0 0 0-8 8v136a16 16 0 0 0 16 16h176a16 16 0 0 0 16-16V56a8 8 0 0 0-8-8Zm-96 85.15L52.57 64h150.86ZM98.71 128 40 181.81V74.19Zm11.84 10.85 12 11.05a8 8 0 0 0 10.82 0l12-11.05 58 53.15H52.57ZM157.29 128 216 74.18v107.63Z"/></svg>',
+    chart: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H96a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v56h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h32v56H56Z"/></svg>',
+    translate: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M239.15 212.42l-56-112a8 8 0 0 0-14.31 0l-21.71 43.43A88 88 0 0 1 100.65 68H128a8 8 0 0 0 0-16H88V40a8 8 0 0 0-16 0v12H32a8 8 0 0 0 0 16h52.51a103.85 103.85 0 0 0 26.02 60.53 103.4 103.4 0 0 1-30.68 20.35 8 8 0 0 0 6.3 14.7 119.6 119.6 0 0 0 36-24.36 119.13 119.13 0 0 0 24.29 18.44l-12.24 24.48a8 8 0 1 0 14.31 7.16L163.06 200h49.88l6.61 13.24a8 8 0 0 0 14.31-7.16Zm-68.11-28.42L188 150.11 204.94 184Z"/></svg>',
+    bot: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200 48h-64V16a8 8 0 0 0-16 0v32H56a32 32 0 0 0-32 32v112a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V80a32 32 0 0 0-32-32Zm-104 88a16 16 0 1 1 16-16 16 16 0 0 1-16 16Zm64 0a16 16 0 1 1 16-16 16 16 0 0 1-16 16Z"/></svg>',
+    check: '<svg width="16" height="16" viewBox="0 0 256 256" fill="var(--accent)"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>'
+  };
+
+  var state = {
+    sidebarCollapsed: false,
+    query: "",
+    modelOpen: false,
+    activeModel: "GLM-5.2",
+    activeId: "c1"
+  };
+
+  var models = [
+    { id: "GLM-5.2", name: "GLM-5.2", pill: "EU", desc: "Hurtig og alsidig · EU-hostet" },
+    { id: "Kimi K3", name: "Kimi K3", pill: "EU", desc: "Lang kontekst · EU-hostet" },
+    { id: "Mistral (EU)", name: "Mistral", pill: "EU", desc: "Fransk model · EU-hostet" }
+  ];
+
+  var docs = [
+    { name: "Personalehåndbog.pdf", meta: "PDF · 2,4 MB" },
+    { name: "Q2-rapport-2026.xlsx", meta: "Regneark · 880 KB" },
+    { name: "Kontraktskabelon.docx", meta: "Dokument · 145 KB" }
+  ];
+
+  var suggestions = [
+    { label: "Opsummér et dokument", icon: ICONS.doc },
+    { label: "Skriv et udkast til en mail", icon: ICONS.mail },
+    { label: "Analysér data", icon: ICONS.chart },
+    { label: "Oversæt en tekst", icon: ICONS.translate }
+  ];
+
+  var conversations = {
+    today: [
+      { id: "c1", title: "Ferieregler i personalehåndbogen" },
+      { id: "c2", title: "Udkast: kvartalsopdatering til bestyrelsen" }
+    ],
+    yesterday: [
+      { id: "c3", title: "Analyse af Q2-omsætningstal" },
+      { id: "c4", title: "Sammenlign to leverandørtilbud" }
+    ],
+    earlier: [
+      { id: "c5", title: "Onboarding-plan for nye medarbejdere" },
+      { id: "c6", title: "GDPR-tjekliste til databehandleraftale" },
+      { id: "c7", title: "Mødereferat — projektopstart" }
+    ]
+  };
+
+  var threads = {
+    c1: {
+      title: "Ferieregler i personalehåndbogen",
+      messages: [
+        { role: "user", text: "Hvor mange feriedage har en fuldtidsansat ret til, og kan de overføres til næste år?" },
+        { role: "assistant", text: "En fuldtidsansat optjener 25 betalte feriedage om året — svarende til 5 ugers ferie efter ferieloven.\n\nOp til 5 overskydende feriedage kan overføres til det følgende ferieår, forudsat at der indgås en skriftlig aftale mellem medarbejder og leder inden ferieårets udløb den 31. august.", hasSource: true, source: "Personalehåndbog.pdf" }
+      ]
+    },
+    _new: { title: "Ny chat", messages: [] }
+  };
+
+  var el = function (id) { return document.getElementById(id); };
+  var app = el("app");
+  var draftEl = el("draft");
+
+  function findConversation(id) {
+    var all = conversations.today.concat(conversations.yesterday, conversations.earlier);
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
+    return null;
+  }
+
+  function getThread(id) {
+    if (!threads[id]) {
+      var conv = findConversation(id);
+      threads[id] = { title: conv ? conv.title : "Ny chat", messages: [] };
+    }
+    return threads[id];
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* ---------- Sidebar groups ---------- */
+  function renderGroups() {
+    var q = state.query.trim().toLowerCase();
+    var defs = [
+      { label: "I dag", items: conversations.today },
+      { label: "I går", items: conversations.yesterday },
+      { label: "Tidligere", items: conversations.earlier }
+    ];
+    var html = "";
+    defs.forEach(function (g) {
+      var items = g.items.filter(function (c) { return !q || c.title.toLowerCase().indexOf(q) !== -1; });
+      if (!items.length) return;
+      html += '<div class="group"><div class="group-label">' + esc(g.label) + "</div>";
+      items.forEach(function (c) {
+        html += '<button class="conv-row' + (c.id === state.activeId ? " active" : "") + '" data-id="' + c.id + '"><span>' + esc(c.title) + "</span></button>";
+      });
+      html += "</div>";
+    });
+    el("groups").innerHTML = html;
+  }
+
+  /* ---------- Knowledge base ---------- */
+  function renderDocs() {
+    el("docs").innerHTML = docs.map(function (d) {
+      return '<div class="doc-row"><div class="doc-icon">' + ICONS.doc + '</div>' +
+        '<div class="doc-body"><div class="doc-name">' + esc(d.name) + '</div><div class="doc-meta">' + esc(d.meta) + "</div></div></div>";
+    }).join("");
+  }
+
+  /* ---------- Thread ---------- */
+  function renderThread() {
+    var thread = getThread(state.activeId);
+    el("threadTitle").textContent = thread.title;
+
+    if (!thread.messages.length) {
+      el("thread").innerHTML =
+        '<div class="empty-state">' +
+        '<div class="empty-icon"><svg width="26" height="26" viewBox="0 0 256 256" fill="currentColor"><path d="M200 48h-64V16a8 8 0 0 0-16 0v32H56a32 32 0 0 0-32 32v112a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V80a32 32 0 0 0-32-32Zm-104 88a16 16 0 1 1 16-16 16 16 0 0 1-16 16Zm64 0a16 16 0 1 1 16-16 16 16 0 0 1-16 16Z"/></svg></div>' +
+        '<div class="empty-title">Hvad kan jeg hjælpe med?</div>' +
+        '<div class="empty-sub">Stil et spørgsmål, eller vælg et forslag herunder.</div>' +
+        "</div>";
+    } else {
+      el("thread").innerHTML = '<div class="messages">' + thread.messages.map(function (m) {
+        if (m.role === "user") {
+          return '<div class="msg user"><div class="user-bubble">' + esc(m.text) + "</div></div>";
+        }
+        var src = m.hasSource
+          ? '<div class="source-chip"><svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg><span class="k">Kilde:</span><span class="v">' + esc(m.source) + "</span></div>"
+          : "";
+        return '<div class="msg assistant"><div class="assistant-row">' +
+          '<div class="bot-avatar">' + ICONS.bot + '</div>' +
+          '<div class="assistant-body"><div class="assistant-text">' + esc(m.text) + "</div>" + src + "</div>" +
+          "</div></div>";
+      }).join("") + "</div>";
+    }
+
+    el("suggestions").style.display = thread.messages.length ? "none" : "flex";
+  }
+
+  function renderSuggestions() {
+    el("suggestions").innerHTML = suggestions.map(function (s, i) {
+      return '<button class="chip" data-i="' + i + '"><span class="chip-icon">' + s.icon + "</span>" + esc(s.label) + "</button>";
+    }).join("");
+  }
+
+  /* ---------- Model selector ---------- */
+  function renderModel() {
+    el("modelName").textContent = state.activeModel;
+    el("modelBtn").classList.toggle("open", state.modelOpen);
+    var menu = el("modelMenu");
+    menu.classList.toggle("open", state.modelOpen);
+    menu.innerHTML = models.map(function (mo) {
+      return '<button class="model-row" data-id="' + esc(mo.id) + '">' +
+        '<div class="mr-body"><div class="model-name">' + esc(mo.name) + '<span class="model-pill">' + esc(mo.pill) + "</span></div>" +
+        '<div class="model-desc">' + esc(mo.desc) + "</div></div>" +
+        (mo.id === state.activeModel ? ICONS.check : "") +
+        "</button>";
+    }).join("");
+  }
+
+  /* ---------- Composer ---------- */
+  function renderSend() {
+    el("sendBtn").classList.toggle("ready", draftEl.value.trim().length > 0);
+  }
+
+  function autosize() {
+    draftEl.style.height = "auto";
+    draftEl.style.height = Math.min(draftEl.scrollHeight, 160) + "px";
+  }
+
+  function send() {
+    var text = draftEl.value.trim();
+    if (!text) return;
+    var thread = getThread(state.activeId);
+    if (state.activeId === "_new" && !thread.messages.length) {
+      thread.title = text.slice(0, 40);
+    }
+    thread.messages.push({ role: "user", text: text });
+    thread.messages.push({ role: "assistant", text: "Tak — jeg gennemgår det og vender tilbage med et svar baseret på dine dokumenter i vidensbasen." });
+    draftEl.value = "";
+    autosize();
+    renderThread();
+    renderSend();
+    var scroll = el("threadScroll");
+    scroll.scrollTop = scroll.scrollHeight;
+  }
+
+  /* ---------- Events ---------- */
+  el("collapseBtn").addEventListener("click", function () {
+    state.sidebarCollapsed = true;
+    app.classList.add("collapsed");
+  });
+  el("expandBtn").addEventListener("click", function () {
+    state.sidebarCollapsed = false;
+    app.classList.remove("collapsed");
+  });
+
+  el("newChatBtn").addEventListener("click", function () {
+    state.activeId = "_new";
+    state.modelOpen = false;
+    threads._new = { title: "Ny chat", messages: [] };
+    draftEl.value = "";
+    autosize();
+    renderGroups();
+    renderThread();
+    renderModel();
+    renderSend();
+    draftEl.focus();
+  });
+
+  el("searchInput").addEventListener("input", function (e) {
+    state.query = e.target.value;
+    renderGroups();
+  });
+
+  el("groups").addEventListener("click", function (e) {
+    var row = e.target.closest(".conv-row");
+    if (!row) return;
+    state.activeId = row.getAttribute("data-id");
+    renderGroups();
+    renderThread();
+  });
+
+  el("suggestions").addEventListener("click", function (e) {
+    var chip = e.target.closest(".chip");
+    if (!chip) return;
+    draftEl.value = suggestions[Number(chip.getAttribute("data-i"))].label;
+    autosize();
+    renderSend();
+    draftEl.focus();
+  });
+
+  el("modelBtn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    state.modelOpen = !state.modelOpen;
+    renderModel();
+  });
+  el("modelMenu").addEventListener("click", function (e) {
+    var row = e.target.closest(".model-row");
+    if (!row) return;
+    state.activeModel = row.getAttribute("data-id");
+    state.modelOpen = false;
+    renderModel();
+  });
+  document.addEventListener("click", function () {
+    if (state.modelOpen) { state.modelOpen = false; renderModel(); }
+  });
+
+  draftEl.addEventListener("input", function () { autosize(); renderSend(); });
+  window.addEventListener("load", autosize);
+  window.addEventListener("resize", autosize);
+  draftEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  el("sendBtn").addEventListener("click", send);
+
+  /* ---------- Init ---------- */
+  renderGroups();
+  renderDocs();
+  renderSuggestions();
+  renderThread();
+  renderModel();
+  renderSend();
+})();
+</script>
+</body>
+</html>
