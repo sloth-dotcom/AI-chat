@@ -28,9 +28,15 @@ const SYSTEM_PROMPT =
   "Du er en hjælpsom AI-assistent for en dansk virksomhed. " +
   "Svar klart og præcist på dansk, medmindre brugeren skriver på et andet sprog.";
 
+const { readSession } = require("./_lib.js");
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+  if (!readSession(req)) {
+    res.status(401).json({ error: "Ikke logget ind — log ind for at chatte." });
     return;
   }
 

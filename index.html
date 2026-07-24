@@ -59,7 +59,10 @@
   .conv-row{display:flex;align-items:center;width:100%;padding:8px;border:none;border-radius:8px;cursor:pointer;font-size:13.5px;text-align:left;color:var(--text);font-weight:500;background:transparent}
   .conv-row:hover{background:#F5F6F8}
   .conv-row.active{color:var(--accent);font-weight:600;background:var(--accent-soft)}
-  .conv-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv-row .ct{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv-del{opacity:0;width:22px;height:22px;flex:none;border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:opacity .12s}
+  .conv-row:hover .conv-del{opacity:1}
+  .conv-del:hover{background:#EAEAEE;color:#E2400B}
 
   .kb{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
   .kb-head{display:flex;align-items:center;justify-content:space-between;padding:0 8px 6px}
@@ -164,10 +167,61 @@
   .send-btn.ready:hover{background:var(--accent-hover)}
 
   .trust-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;font-size:12px;color:var(--muted-2)}
+
+  /* ---------- Login ---------- */
+  .login-screen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+  .login-card{width:380px;max-width:calc(100vw - 40px);background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 24px rgba(12,21,48,.09);padding:32px}
+  .login-logo{height:28px;width:auto;margin-bottom:22px}
+  .login-title{font-size:22px;font-weight:700;letter-spacing:-.01em}
+  .login-sub{font-size:14px;color:var(--muted);margin:6px 0 20px}
+  .login-label{display:block;font-size:12.5px;font-weight:600;margin:14px 0 6px}
+  .login-input{width:100%;height:42px;padding:0 12px;border:1px solid var(--line);background:var(--panel);border-radius:8px;font-size:14px;color:var(--text);outline:none;font-family:inherit}
+  .login-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .login-btn{width:100%;height:44px;margin-top:20px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s}
+  .login-btn:hover{background:var(--accent-hover)}
+  .login-btn:disabled{opacity:.6;cursor:wait}
+  .login-err{font-size:13px;color:#E2400B;margin-top:12px}
+  .login-foot{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;font-size:12px;color:var(--muted-2)}
+
+  /* ---------- Search suggestions ---------- */
+  .search-drop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 8px 28px rgba(12,21,48,.12);padding:6px;z-index:30;display:none;max-height:320px;overflow-y:auto}
+  .search-drop.open{display:block}
+  .sd-label{padding:8px 8px 4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2)}
+  .sd-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px;border:none;background:transparent;border-radius:8px;cursor:pointer;text-align:left;font-size:13px;color:var(--text);font-family:inherit}
+  .sd-item:hover{background:#F5F6F8}
+  .sd-item .si{color:var(--accent);display:flex;flex:none}
+  .sd-item .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sd-item .sm{flex:none;font-size:11px;color:var(--muted-2)}
+  .sd-empty{padding:10px 8px;font-size:12.5px;color:var(--muted-2)}
+
+  /* ---------- Profile ---------- */
+  .avatar{overflow:hidden}
+  .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+
+  .chip.chip-nudge{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
-<div class="app" id="app">
+<div class="login-screen" id="loginScreen" style="display:none">
+  <div class="login-card">
+    <img class="login-logo" src="logo-horizontal.png" alt="Colourbox">
+    <div class="login-title">Log ind</div>
+    <div class="login-sub">Fortsæt til AI-chatten</div>
+    <form id="loginForm">
+      <label class="login-label" for="loginEmail">E-mail</label>
+      <input class="login-input" type="email" id="loginEmail" autocomplete="username" required>
+      <label class="login-label" for="loginPass">Adgangskode</label>
+      <input class="login-input" type="password" id="loginPass" autocomplete="current-password" required>
+      <div class="login-err" id="loginErr" style="display:none"></div>
+      <button class="login-btn" type="submit" id="loginBtn">Log ind</button>
+    </form>
+    <div class="login-foot">
+      <svg width="13" height="13" viewBox="0 0 256 256" fill="var(--accent)"><path d="M208 40H48a16 16 0 0 0-16 16v58.78c0 89.61 75.82 119.34 91 124.39a15.53 15.53 0 0 0 10 0c15.2-5.05 91-34.78 91-124.39V56a16 16 0 0 0-16-16Z"/></svg>
+      Data forbliver i EU · GDPR-compliant
+    </div>
+  </div>
+</div>
+<div class="app" id="app" style="display:none">
 
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar">
@@ -190,7 +244,8 @@
       <div class="search-wrap">
         <div class="search-box">
           <svg width="16" height="16" viewBox="0 0 256 256" fill="#9DA1A6"><path d="m229.66 218.34-50.07-50.06a88.11 88.11 0 1 0-11.31 11.31l50.06 50.07a8 8 0 0 0 11.32-11.32ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg>
-          <input id="searchInput" placeholder="Søg i samtaler…" />
+          <input id="searchInput" placeholder="Søg i samtaler…" autocomplete="off" />
+          <div class="search-drop" id="searchDrop"></div>
         </div>
       </div>
 
@@ -210,13 +265,13 @@
       </div>
 
       <div class="user-footer">
-        <div class="avatar">MK</div>
+        <div class="avatar"><img src="profile.jpg" alt="Profil" id="avatarImg"></div>
         <div class="user-body">
-          <div class="user-name">Mette Kristensen</div>
-          <div class="user-role">Konsulent</div>
+          <div class="user-name" id="userName">&nbsp;</div>
+          <div class="user-role" id="userRole">&nbsp;</div>
         </div>
-        <button class="ghost-btn settings-btn" title="Indstillinger">
-          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M128 80a48 48 0 1 0 48 48 48 48 0 0 0-48-48Zm0 80a32 32 0 1 1 32-32 32 32 0 0 1-32 32Zm88-29.84q.06-2.16 0-4.32l14.92-18.64a8 8 0 0 0 1.48-7.06 107.21 107.21 0 0 0-10.88-26.25 8 8 0 0 0-6.34-3.94l-23.87-2.64q-1.48-1.56-3-3l-2.63-23.89a8 8 0 0 0-3.94-6.34 107.71 107.71 0 0 0-26.25-10.87 8 8 0 0 0-7.06 1.49L130.16 40h-4.32L107.2 25.11a8 8 0 0 0-7.06-1.48 107.6 107.6 0 0 0-26.25 10.88 8 8 0 0 0-3.94 6.34l-2.64 23.86q-1.56 1.49-3 3L40.55 71.3a8 8 0 0 0-6.34 3.94 107.71 107.71 0 0 0-10.87 26.25 8 8 0 0 0 1.49 7.06L39.84 127v4.32L24.92 149.96a8 8 0 0 0-1.48 7.06 107.21 107.21 0 0 0 10.88 26.25 8 8 0 0 0 6.34 3.94l23.87 2.64q1.48 1.56 3 3l2.63 23.89a8 8 0 0 0 3.94 6.34 107.71 107.71 0 0 0 26.25 10.87 8 8 0 0 0 7.06-1.49L125.84 216h4.32l18.64 14.92a8 8 0 0 0 7.06 1.48 107.21 107.21 0 0 0 26.25-10.88 8 8 0 0 0 3.94-6.34l2.64-23.87q1.56-1.48 3-3l23.89-2.63a8 8 0 0 0 6.34-3.94 107.71 107.71 0 0 0 10.87-26.25 8 8 0 0 0-1.49-7.06Z"/></svg>
+        <button class="ghost-btn settings-btn" id="logoutBtn" title="Log ud">
+          <svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M120 216a8 8 0 0 1-8 8H48a16 16 0 0 1-16-16V48a16 16 0 0 1 16-16h64a8 8 0 0 1 0 16H48v160h64a8 8 0 0 1 8 8Zm109.66-93.66-40-40a8 8 0 0 0-11.32 11.32L204.69 120H112a8 8 0 0 0 0 16h92.69l-26.35 26.34a8 8 0 0 0 11.32 11.32l40-40a8 8 0 0 0 0-11.32Z"/></svg>
         </button>
       </div>
 
@@ -293,7 +348,9 @@
     translate: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M239.15 212.42l-56-112a8 8 0 0 0-14.31 0l-21.71 43.43A88 88 0 0 1 100.65 68H128a8 8 0 0 0 0-16H88V40a8 8 0 0 0-16 0v12H32a8 8 0 0 0 0 16h52.51a103.85 103.85 0 0 0 26.02 60.53 103.4 103.4 0 0 1-30.68 20.35 8 8 0 0 0 6.3 14.7 119.6 119.6 0 0 0 36-24.36 119.13 119.13 0 0 0 24.29 18.44l-12.24 24.48a8 8 0 1 0 14.31 7.16L163.06 200h49.88l6.61 13.24a8 8 0 0 0 14.31-7.16Zm-68.11-28.42L188 150.11 204.94 184Z"/></svg>',
     bot: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200 48h-64V16a8 8 0 0 0-16 0v32H56a32 32 0 0 0-32 32v112a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V80a32 32 0 0 0-32-32Zm-104 88a16 16 0 1 1 16-16 16 16 0 0 1-16 16Zm64 0a16 16 0 1 1 16-16 16 16 0 0 1-16 16Z"/></svg>',
     check: '<svg width="16" height="16" viewBox="0 0 256 256" fill="var(--accent)"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
-    trash: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48h-40v-8a24 24 0 0 0-24-24h-48a24 24 0 0 0-24 24v8H40a8 8 0 0 0 0 16h8v144a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16V64h8a8 8 0 0 0 0-16ZM96 40a8 8 0 0 1 8-8h48a8 8 0 0 1 8 8v8H96Zm96 168H64V64h128Zm-80-104v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Zm48 0v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Z"/></svg>'
+    trash: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48h-40v-8a24 24 0 0 0-24-24h-48a24 24 0 0 0-24 24v8H40a8 8 0 0 0 0 16h8v144a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16V64h8a8 8 0 0 0 0-16ZM96 40a8 8 0 0 1 8-8h48a8 8 0 0 1 8 8v8H96Zm96 168H64V64h128Zm-80-104v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Zm48 0v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Z"/></svg>',
+    clock: '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm64-88a8 8 0 0 1-8 8h-56a8 8 0 0 1-8-8V80a8 8 0 0 1 16 0v48h48a8 8 0 0 1 8 8Z"/></svg>',
+    spark: '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M208 144a15.78 15.78 0 0 1-10.42 14.94l-51.65 19-19 51.61a15.92 15.92 0 0 1-29.88 0l-19-51.66-51.61-19a15.92 15.92 0 0 1 0-29.88l51.65-19 19-51.61a15.92 15.92 0 0 1 29.88 0l19 51.65 51.61 19A15.78 15.78 0 0 1 208 144ZM152 48h16v16a8 8 0 0 0 16 0V48h16a8 8 0 0 0 0-16h-16V16a8 8 0 0 0-16 0v16h-16a8 8 0 0 0 0 16Zm88 32h-8v-8a8 8 0 0 0-16 0v8h-8a8 8 0 0 0 0 16h8v8a8 8 0 0 0 16 0v-8h8a8 8 0 0 0 0-16Z"/></svg>'
   };
 
   var state = {
@@ -301,8 +358,9 @@
     query: "",
     modelOpen: false,
     activeModel: "GLM-5.2",
-    activeId: "c1"
+    activeId: "_new"
   };
+  var currentUser = null;
 
   var models = [
     { id: "GLM-5.2", name: "GLM-5.2", pill: "EU", desc: "Hurtig og alsidig · EU-hostet" },
@@ -328,56 +386,44 @@
 
   function docType(name) { return /\.pdf$/i.test(name) ? "PDF" : "Tekst"; }
 
-  var suggestions = [
+  var baseSuggestions = [
     { label: "Opsummér et dokument", icon: ICONS.doc },
     { label: "Skriv et udkast til en mail", icon: ICONS.mail },
     { label: "Analysér data", icon: ICONS.chart },
     { label: "Oversæt en tekst", icon: ICONS.translate }
   ];
 
-  var conversations = {
-    today: [
-      { id: "c1", title: "Ferieregler i personalehåndbogen" },
-      { id: "c2", title: "Udkast: kvartalsopdatering til bestyrelsen" }
-    ],
-    yesterday: [
-      { id: "c3", title: "Analyse af Q2-omsætningstal" },
-      { id: "c4", title: "Sammenlign to leverandørtilbud" }
-    ],
-    earlier: [
-      { id: "c5", title: "Onboarding-plan for nye medarbejdere" },
-      { id: "c6", title: "GDPR-tjekliste til databehandleraftale" },
-      { id: "c7", title: "Mødereferat — projektopstart" }
-    ]
-  };
-
-  var threads = {
-    c1: {
-      title: "Ferieregler i personalehåndbogen",
-      messages: [
-        { role: "user", text: "Hvor mange feriedage har en fuldtidsansat ret til, og kan de overføres til næste år?" },
-        { role: "assistant", text: "En fuldtidsansat optjener 25 betalte feriedage om året — svarende til 5 ugers ferie efter ferieloven.\n\nOp til 5 overskydende feriedage kan overføres til det følgende ferieår, forudsat at der indgås en skriftlig aftale mellem medarbejder og leder inden ferieårets udløb den 31. august.", hasSource: true, source: "Personalehåndbog.pdf" }
-      ]
-    },
-    _new: { title: "Ny chat", messages: [] }
-  };
+  var threads = {};                                    // loaded from /api/chats
+  var newThread = { title: "Ny chat", messages: [] };  // ephemeral until first send
 
   var el = function (id) { return document.getElementById(id); };
   var app = el("app");
   var draftEl = el("draft");
 
-  function findConversation(id) {
-    var all = conversations.today.concat(conversations.yesterday, conversations.earlier);
-    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i];
-    return null;
+  function getThread(id) {
+    return threads[id] || newThread;
   }
 
-  function getThread(id) {
-    if (!threads[id]) {
-      var conv = findConversation(id);
-      threads[id] = { title: conv ? conv.title : "Ny chat", messages: [] };
-    }
-    return threads[id];
+  function threadList() {
+    return Object.keys(threads).map(function (id) {
+      var t = threads[id];
+      return { id: id, title: t.title, updatedAt: t.updatedAt || 0 };
+    }).sort(function (a, b) { return b.updatedAt - a.updatedAt; });
+  }
+
+  function dayStart(ts) {
+    var d = new Date(ts);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
+  function relTime(ts) {
+    if (!ts) return "";
+    var today = dayStart(Date.now());
+    var d = dayStart(ts);
+    if (d >= today) return "i dag";
+    if (d >= today - 86400000) return "i går";
+    return Math.round((today - d) / 86400000) + " dage siden";
   }
 
   function esc(s) {
@@ -387,21 +433,29 @@
   /* ---------- Sidebar groups ---------- */
   function renderGroups() {
     var q = state.query.trim().toLowerCase();
-    var defs = [
-      { label: "I dag", items: conversations.today },
-      { label: "I går", items: conversations.yesterday },
-      { label: "Tidligere", items: conversations.earlier }
+    var list = threadList().filter(function (t) { return !q || t.title.toLowerCase().indexOf(q) !== -1; });
+    var today = dayStart(Date.now());
+    var groups = [
+      { label: "I dag", items: [] },
+      { label: "I går", items: [] },
+      { label: "Tidligere", items: [] }
     ];
+    list.forEach(function (t) {
+      var d = dayStart(t.updatedAt);
+      (d >= today ? groups[0] : d >= today - 86400000 ? groups[1] : groups[2]).items.push(t);
+    });
     var html = "";
-    defs.forEach(function (g) {
-      var items = g.items.filter(function (c) { return !q || c.title.toLowerCase().indexOf(q) !== -1; });
-      if (!items.length) return;
+    groups.forEach(function (g) {
+      if (!g.items.length) return;
       html += '<div class="group"><div class="group-label">' + esc(g.label) + "</div>";
-      items.forEach(function (c) {
-        html += '<button class="conv-row' + (c.id === state.activeId ? " active" : "") + '" data-id="' + c.id + '"><span>' + esc(c.title) + "</span></button>";
+      g.items.forEach(function (t) {
+        html += '<button class="conv-row' + (t.id === state.activeId ? " active" : "") + '" data-id="' + t.id + '">' +
+          '<span class="ct">' + esc(t.title) + '</span>' +
+          '<span class="conv-del" data-del="' + t.id + '" title="Slet samtale">' + ICONS.trash + "</span></button>";
       });
       html += "</div>";
     });
+    if (!html) html = '<div class="kb-empty">Ingen samtaler endnu — start en ny chat.</div>';
     el("groups").innerHTML = html;
   }
 
@@ -454,13 +508,88 @@
       }).join("") + "</div>";
     }
 
+    if (!thread.messages.length) renderSuggestions();
     el("suggestions").style.display = thread.messages.length ? "none" : "flex";
   }
 
+  function buildSuggestions() {
+    var out = [];
+    var recent = threadList();
+    if (recent.length && recent[0].updatedAt > Date.now() - 7 * 86400000) {
+      out.push({ type: "resume", label: "Fortsæt: " + recent[0].title, threadId: recent[0].id, nudge: true, icon: ICONS.clock });
+    }
+    recent.slice(0, 2).forEach(function (t) {
+      out.push({ type: "draft", label: "Følg op på: " + t.title, icon: ICONS.spark,
+        draft: 'Følg op på vores samtale om "' + t.title + '": hvad er de vigtigste næste skridt?' });
+    });
+    kbDocs.filter(function (d) { return !d.loading; }).slice(0, 2).forEach(function (d) {
+      out.push({ type: "draft", label: "Spørg til " + d.name, icon: ICONS.doc,
+        draft: 'Hvad siger dokumentet "' + d.name + '" om ' });
+    });
+    baseSuggestions.forEach(function (s) {
+      out.push({ type: "draft", label: s.label, draft: s.label, icon: s.icon });
+    });
+    return out.slice(0, 6);
+  }
+
+  var currentChips = [];
   function renderSuggestions() {
-    el("suggestions").innerHTML = suggestions.map(function (s, i) {
-      return '<button class="chip" data-i="' + i + '"><span class="chip-icon">' + s.icon + "</span>" + esc(s.label) + "</button>";
+    currentChips = buildSuggestions();
+    el("suggestions").innerHTML = currentChips.map(function (s, i) {
+      return '<button class="chip' + (s.nudge ? " chip-nudge" : "") + '" data-i="' + i + '">' +
+        '<span class="chip-icon">' + s.icon + "</span>" + esc(s.label) + "</button>";
     }).join("");
+  }
+
+  /* ---------- Search dropdown ---------- */
+  function renderSearchDrop() {
+    var q = state.query.trim().toLowerCase();
+    var list = threadList();
+    var html = "";
+    if (!q) {
+      var recent = list.slice(0, 4);
+      if (recent.length) {
+        html += '<div class="sd-label">Seneste</div>';
+        recent.forEach(function (t) {
+          html += '<button class="sd-item" data-act="open" data-id="' + t.id + '"><span class="si">' + ICONS.clock +
+            '</span><span class="st">' + esc(t.title) + '</span><span class="sm">' + relTime(t.updatedAt) + "</span></button>";
+        });
+      }
+      var sugg = buildSuggestions().filter(function (s) { return s.type === "draft"; }).slice(0, 3);
+      if (sugg.length) {
+        html += '<div class="sd-label">Forslag</div>';
+        sugg.forEach(function (s) {
+          html += '<button class="sd-item" data-act="draft" data-draft="' + esc(s.draft) + '"><span class="si">' + ICONS.spark +
+            '</span><span class="st">' + esc(s.label) + "</span></button>";
+        });
+      }
+      if (!html) html = '<div class="sd-empty">Ingen samtaler endnu — start en ny chat.</div>';
+    } else {
+      list.filter(function (t) { return t.title.toLowerCase().indexOf(q) !== -1; }).slice(0, 6).forEach(function (t) {
+        html += '<button class="sd-item" data-act="open" data-id="' + t.id + '"><span class="si">' + ICONS.clock +
+          '</span><span class="st">' + esc(t.title) + '</span><span class="sm">' + relTime(t.updatedAt) + "</span></button>";
+      });
+      html += '<button class="sd-item" data-act="draft" data-draft="' + esc(state.query.trim()) + '"><span class="si">' + ICONS.spark +
+        '</span><span class="st">Ny chat om "' + esc(state.query.trim()) + '"</span></button>';
+    }
+    el("searchDrop").innerHTML = html;
+  }
+
+  function selectThread(id) {
+    state.activeId = id;
+    renderGroups();
+    renderThread();
+  }
+
+  function startDraft(text) {
+    state.activeId = "_new";
+    newThread = { title: "Ny chat", messages: [] };
+    renderGroups();
+    renderThread();
+    draftEl.value = text || "";
+    autosize();
+    renderSend();
+    draftEl.focus();
   }
 
   /* ---------- Model selector ---------- */
@@ -652,9 +781,14 @@
     var thread = getThread(state.activeId);
     var last = thread.messages[thread.messages.length - 1];
     if (last && last.streaming) return; // one reply at a time per thread
-    if (state.activeId === "_new" && !thread.messages.length) {
-      thread.title = (text || files[0].name).slice(0, 40);
+    if (state.activeId === "_new") {
+      var id = "t" + Date.now();
+      if (!thread.messages.length) thread.title = (text || files[0].name).slice(0, 40);
+      threads[id] = thread;
+      newThread = { title: "Ny chat", messages: [] };
+      state.activeId = id;
     }
+    thread.updatedAt = Date.now();
     var apiText = text || "Se den vedhæftede fil.";
     files.forEach(function (f) {
       apiText += "\n\n[Vedhæftet fil: " + f.name + "]\n---\n" + f.text + "\n---";
@@ -671,10 +805,48 @@
     thread.messages.push(reply);
     draftEl.value = "";
     autosize();
+    renderGroups();
     renderThread();
     renderSend();
     scrollBottom();
+    saveChats();
     streamReply(state.activeId, thread, reply);
+  }
+
+  /* ---------- Persistence ---------- */
+  var saveTimer = null;
+  function saveChats() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      var clean = {};
+      Object.keys(threads).forEach(function (id) {
+        var t = threads[id];
+        clean[id] = {
+          title: t.title,
+          updatedAt: t.updatedAt || 0,
+          messages: t.messages.filter(function (m) { return !m.streaming; }).map(function (m) {
+            var o = { role: m.role, text: m.text };
+            if (m.apiText) o.apiText = m.apiText;
+            if (m.attachments && m.attachments.length) o.attachments = m.attachments;
+            if (m.error) o.error = true;
+            return o;
+          })
+        };
+      });
+      fetch("/api/chats", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ threads: clean })
+      }).catch(function () { /* retry on next change */ });
+    }, 600);
+  }
+
+  function loadChats() {
+    return fetch("/api/chats").then(function (r) {
+      return r.ok ? r.json() : { threads: {} };
+    }).then(function (data) {
+      threads = (data && data.threads) || {};
+    }).catch(function () { threads = {}; });
   }
 
   function streamReply(threadId, thread, reply) {
@@ -734,6 +906,8 @@
     }).then(function () {
       reply.streaming = false;
       if (reply.error && !reply.text) reply.text = "Der opstod en fejl.";
+      thread.updatedAt = Date.now();
+      saveChats();
       rerender();
     });
   }
@@ -749,26 +923,52 @@
   });
 
   el("newChatBtn").addEventListener("click", function () {
-    state.activeId = "_new";
     state.modelOpen = false;
-    threads._new = { title: "Ny chat", messages: [] };
     pendingFiles = [];
     renderAttachRow();
-    draftEl.value = "";
-    autosize();
-    renderGroups();
-    renderThread();
     renderModel();
-    renderSend();
-    draftEl.focus();
+    startDraft("");
   });
 
   el("searchInput").addEventListener("input", function (e) {
     state.query = e.target.value;
     renderGroups();
+    renderSearchDrop();
+    el("searchDrop").classList.add("open");
+  });
+  el("searchInput").addEventListener("focus", function () {
+    renderSearchDrop();
+    el("searchDrop").classList.add("open");
+  });
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".search-box")) el("searchDrop").classList.remove("open");
+  });
+  el("searchDrop").addEventListener("click", function (e) {
+    var item = e.target.closest(".sd-item");
+    if (!item) return;
+    var act = item.getAttribute("data-act");
+    if (act === "open") selectThread(item.getAttribute("data-id"));
+    else if (act === "draft") startDraft(item.getAttribute("data-draft"));
+    el("searchDrop").classList.remove("open");
+    state.query = "";
+    el("searchInput").value = "";
+    renderGroups();
   });
 
   el("groups").addEventListener("click", function (e) {
+    var del = e.target.closest(".conv-del");
+    if (del) {
+      var delId = del.getAttribute("data-del");
+      delete threads[delId];
+      if (state.activeId === delId) {
+        state.activeId = "_new";
+        newThread = { title: "Ny chat", messages: [] };
+        renderThread();
+      }
+      saveChats();
+      renderGroups();
+      return;
+    }
     var row = e.target.closest(".conv-row");
     if (!row) return;
     state.activeId = row.getAttribute("data-id");
@@ -779,7 +979,10 @@
   el("suggestions").addEventListener("click", function (e) {
     var chip = e.target.closest(".chip");
     if (!chip) return;
-    draftEl.value = suggestions[Number(chip.getAttribute("data-i"))].label;
+    var s = currentChips[Number(chip.getAttribute("data-i"))];
+    if (!s) return;
+    if (s.type === "resume") { selectThread(s.threadId); return; }
+    draftEl.value = s.draft;
     autosize();
     renderSend();
     draftEl.focus();
@@ -840,13 +1043,67 @@
   });
   el("sendBtn").addEventListener("click", send);
 
-  /* ---------- Init ---------- */
-  renderGroups();
-  renderDocs();
-  renderSuggestions();
-  renderThread();
-  renderModel();
-  renderSend();
+  /* ---------- Auth + init ---------- */
+  function showLogin() {
+    currentUser = null;
+    el("app").style.display = "none";
+    el("loginScreen").style.display = "flex";
+    el("loginEmail").focus();
+  }
+
+  function showApp(user) {
+    currentUser = user;
+    el("userName").textContent = user.name || user.email;
+    el("userRole").textContent = user.role || "";
+    el("loginScreen").style.display = "none";
+    el("app").style.display = "flex";
+  }
+
+  function startUi() {
+    state.activeId = "_new";
+    newThread = { title: "Ny chat", messages: [] };
+    renderGroups();
+    renderDocs();
+    renderModel();
+    renderSend();
+    renderThread();
+  }
+
+  el("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var btn = el("loginBtn");
+    btn.disabled = true;
+    el("loginErr").style.display = "none";
+    fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: el("loginEmail").value, password: el("loginPass").value })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (!res.ok) throw new Error(res.j.error || "Login mislykkedes — prøv igen.");
+      el("loginPass").value = "";
+      return loadChats().then(function () { showApp(res.j.user); startUi(); });
+    }).catch(function (err) {
+      var e2 = el("loginErr");
+      e2.textContent = err.message;
+      e2.style.display = "block";
+    }).then(function () { btn.disabled = false; });
+  });
+
+  el("logoutBtn").addEventListener("click", function () {
+    fetch("/api/logout", { method: "POST" }).catch(function () {}).then(function () {
+      threads = {};
+      showLogin();
+    });
+  });
+
+  fetch("/api/session").then(function (r) {
+    return r.ok ? r.json() : null;
+  }).then(function (j) {
+    if (j && j.ok) return loadChats().then(function () { showApp(j.user); startUi(); });
+    showLogin();
+  }).catch(showLogin);
 })();
 </script>
 </body>
