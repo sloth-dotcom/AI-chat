@@ -13,7 +13,9 @@ const PROVIDERS = {
   "Kimi K3": {
     base: () => process.env.KIMI_API_BASE || "https://api.moonshot.ai/v1",
     keyEnv: "KIMI_API_KEY",
-    model: () => process.env.KIMI_MODEL || "kimi-latest",
+    model: () => process.env.KIMI_MODEL || "kimi-k3",
+    // kimi-k3 is frequently overloaded; retry once on a stable sibling.
+    fallbackModel: () => process.env.KIMI_FALLBACK_MODEL || "kimi-k2.6",
   },
   "Mistral (EU)": {
     base: () => process.env.MISTRAL_API_BASE || "https://api.mistral.ai/v1",
@@ -57,21 +59,36 @@ module.exports = async function handler(req, res) {
     .slice(-40)
     .map((m) => ({ role: m.role, content: m.content }));
 
-  let upstream;
-  try {
-    upstream = await fetch(`${provider.base()}/chat/completions`, {
+  const callUpstream = (modelId) =>
+    fetch(`${provider.base()}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: provider.model(),
+        model: modelId,
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...chat],
         stream: true,
         ...(provider.extra || {}),
       }),
     });
+
+  let upstream;
+  try {
+    upstream = await callUpstream(provider.model());
+    if (!upstream.ok && provider.fallbackModel) {
+      const detail = await upstream.text().catch(() => "");
+      if (upstream.status === 429 && detail.includes("overloaded")) {
+        upstream = await callUpstream(provider.fallbackModel());
+      } else {
+        res.status(upstream.status).json({
+          error: "Model-API'et (" + (model || "GLM-5.2") + ") svarede med fejl " + upstream.status,
+          detail: detail.slice(0, 500),
+        });
+        return;
+      }
+    }
   } catch (err) {
     res.status(502).json({ error: "Kunne ikke nå model-API'et: " + err.message });
     return;
