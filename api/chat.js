@@ -1,11 +1,25 @@
-// Serverless proxy to the GLM chat-completions API (Z.ai / Zhipu, OpenAI-compatible).
-// The API key lives in the GLM_API_KEY env var and never reaches the browser.
-const API_BASE = process.env.GLM_API_BASE || "https://api.z.ai/api/paas/v4";
-const DEFAULT_MODEL = process.env.GLM_MODEL || "glm-4.6";
-
-// UI picker id → real API model id. Unknown ids fall back to DEFAULT_MODEL.
-const MODEL_MAP = {
-  "GLM-5.2": DEFAULT_MODEL,
+// Serverless proxy to EU-selectable chat models. All three providers use
+// OpenAI-compatible chat-completions APIs with SSE streaming, so the response
+// is passed straight through to the browser. API keys live in env vars and
+// never reach the client.
+const PROVIDERS = {
+  "GLM-5.2": {
+    base: () => process.env.GLM_API_BASE || "https://api.z.ai/api/paas/v4",
+    keyEnv: "GLM_API_KEY",
+    model: () => process.env.GLM_MODEL || "glm-4.5-flash",
+    // Zhipu-specific: skip the thinking phase so replies stream immediately.
+    extra: { thinking: { type: "disabled" } },
+  },
+  "Kimi K3": {
+    base: () => process.env.KIMI_API_BASE || "https://api.moonshot.ai/v1",
+    keyEnv: "KIMI_API_KEY",
+    model: () => process.env.KIMI_MODEL || "kimi-latest",
+  },
+  "Mistral (EU)": {
+    base: () => process.env.MISTRAL_API_BASE || "https://api.mistral.ai/v1",
+    keyEnv: "MISTRAL_API_KEY",
+    model: () => process.env.MISTRAL_MODEL || "mistral-small-latest",
+  },
 };
 
 const SYSTEM_PROMPT =
@@ -18,16 +32,21 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const key = process.env.GLM_API_KEY;
+  const { messages, model } = req.body || {};
+  const provider = PROVIDERS[model] || PROVIDERS["GLM-5.2"];
+
+  const key = process.env[provider.keyEnv];
   if (!key) {
     res.status(500).json({
       error:
-        "GLM_API_KEY er ikke sat. Tilføj den under Vercel → Project → Settings → Environment Variables (eller `vercel env add GLM_API_KEY production`) og deploy igen.",
+        provider.keyEnv +
+        " er ikke sat. Tilføj den under Vercel → Project → Settings → Environment Variables (eller `vercel env add " +
+        provider.keyEnv +
+        " production`) og deploy igen.",
     });
     return;
   }
 
-  const { messages, model } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages mangler" });
     return;
@@ -40,28 +59,28 @@ module.exports = async function handler(req, res) {
 
   let upstream;
   try {
-    upstream = await fetch(`${API_BASE}/chat/completions`, {
+    upstream = await fetch(`${provider.base()}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({
-        model: MODEL_MAP[model] || DEFAULT_MODEL,
+        model: provider.model(),
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...chat],
         stream: true,
-        thinking: { type: "disabled" },
+        ...(provider.extra || {}),
       }),
     });
   } catch (err) {
-    res.status(502).json({ error: "Kunne ikke nå GLM-API'et: " + err.message });
+    res.status(502).json({ error: "Kunne ikke nå model-API'et: " + err.message });
     return;
   }
 
   if (!upstream.ok) {
     const detail = await upstream.text().catch(() => "");
     res.status(upstream.status).json({
-      error: "GLM-API'et svarede med fejl " + upstream.status,
+      error: "Model-API'et (" + (model || "GLM-5.2") + ") svarede med fejl " + upstream.status,
       detail: detail.slice(0, 500),
     });
     return;
