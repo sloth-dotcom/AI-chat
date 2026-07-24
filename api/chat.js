@@ -34,7 +34,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { messages, model } = req.body || {};
+  const { messages, model, kb } = req.body || {};
   const provider = PROVIDERS[model] || PROVIDERS["GLM-5.2"];
 
   const key = process.env[provider.keyEnv];
@@ -59,6 +59,26 @@ module.exports = async function handler(req, res) {
     .slice(-40)
     .map((m) => ({ role: m.role, content: m.content }));
 
+  // Knowledge-base documents from the client become a second system message.
+  const systemMessages = [{ role: "system", content: SYSTEM_PROMPT }];
+  if (Array.isArray(kb) && kb.length) {
+    let budget = 45000;
+    let ctx =
+      "Brugeren har en vidensbase med følgende dokumenter. Brug dem som kontekst, når det er relevant for spørgsmålet, og nævn dokumentets navn, når du bruger oplysninger fra det.\n";
+    for (const d of kb.slice(0, 20)) {
+      if (!d || typeof d.name !== "string" || typeof d.text !== "string") continue;
+      const name = d.name.slice(0, 120);
+      const text = d.text.slice(0, Math.max(0, budget));
+      if (!text) {
+        ctx += "\n[Dokument: " + name + "] (indhold udeladt — kontekstpladsen er brugt)\n";
+        continue;
+      }
+      ctx += "\n[Dokument: " + name + "]\n" + text + "\n";
+      budget -= text.length;
+    }
+    systemMessages.push({ role: "system", content: ctx });
+  }
+
   const callUpstream = (modelId) =>
     fetch(`${provider.base()}/chat/completions`, {
       method: "POST",
@@ -68,7 +88,7 @@ module.exports = async function handler(req, res) {
       },
       body: JSON.stringify({
         model: modelId,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...chat],
+        messages: [...systemMessages, ...chat],
         stream: true,
         ...(provider.extra || {}),
       }),

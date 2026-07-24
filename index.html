@@ -68,6 +68,10 @@
   .doc-body{flex:1;min-width:0}
   .doc-name{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .doc-meta{font-size:11px;color:var(--muted-2)}
+  .doc-del{opacity:0;width:26px;height:26px;flex:none;border:none;background:transparent;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;transition:opacity .12s}
+  .doc-row:hover .doc-del{opacity:1}
+  .doc-del:hover{background:#eae7e0;color:#B0563C}
+  .kb-empty{padding:8px;font-size:12px;color:var(--muted-2);line-height:1.5}
 
   .user-footer{border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:10px}
   .avatar{width:34px;height:34px;flex:none;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
@@ -193,10 +197,11 @@
         <div class="kb">
           <div class="kb-head">
             <div class="group-label">Vidensbase</div>
-            <button class="ghost-btn kb-add" title="Upload dokument">
+            <button class="ghost-btn kb-add" id="kbAddBtn" title="Upload dokument">
               <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>
             </button>
           </div>
+          <input type="file" id="kbFileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,text/*,application/pdf,application/json">
           <div id="docs"></div>
         </div>
       </div>
@@ -284,7 +289,8 @@
     chart: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H96a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v56h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h32v56H56Z"/></svg>',
     translate: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M239.15 212.42l-56-112a8 8 0 0 0-14.31 0l-21.71 43.43A88 88 0 0 1 100.65 68H128a8 8 0 0 0 0-16H88V40a8 8 0 0 0-16 0v12H32a8 8 0 0 0 0 16h52.51a103.85 103.85 0 0 0 26.02 60.53 103.4 103.4 0 0 1-30.68 20.35 8 8 0 0 0 6.3 14.7 119.6 119.6 0 0 0 36-24.36 119.13 119.13 0 0 0 24.29 18.44l-12.24 24.48a8 8 0 1 0 14.31 7.16L163.06 200h49.88l6.61 13.24a8 8 0 0 0 14.31-7.16Zm-68.11-28.42L188 150.11 204.94 184Z"/></svg>',
     bot: '<svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200 48h-64V16a8 8 0 0 0-16 0v32H56a32 32 0 0 0-32 32v112a32 32 0 0 0 32 32h144a32 32 0 0 0 32-32V80a32 32 0 0 0-32-32Zm-104 88a16 16 0 1 1 16-16 16 16 0 0 1-16 16Zm64 0a16 16 0 1 1 16-16 16 16 0 0 1-16 16Z"/></svg>',
-    check: '<svg width="16" height="16" viewBox="0 0 256 256" fill="var(--accent)"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>'
+    check: '<svg width="16" height="16" viewBox="0 0 256 256" fill="var(--accent)"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
+    trash: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48h-40v-8a24 24 0 0 0-24-24h-48a24 24 0 0 0-24 24v8H40a8 8 0 0 0 0 16h8v144a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16V64h8a8 8 0 0 0 0-16ZM96 40a8 8 0 0 1 8-8h48a8 8 0 0 1 8 8v8H96Zm96 168H64V64h128Zm-80-104v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Zm48 0v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Z"/></svg>'
   };
 
   var state = {
@@ -301,11 +307,23 @@
     { id: "Mistral (EU)", name: "Mistral", pill: "EU", desc: "Fransk model · EU-hostet" }
   ];
 
-  var docs = [
-    { name: "Personalehåndbog.pdf", meta: "PDF · 2,4 MB" },
-    { name: "Q2-rapport-2026.xlsx", meta: "Regneark · 880 KB" },
-    { name: "Kontraktskabelon.docx", meta: "Dokument · 145 KB" }
-  ];
+  function loadKb() {
+    try {
+      var v = JSON.parse(localStorage.getItem("aiChatKB") || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch (e) { return []; }
+  }
+  var kbDocs = loadKb();
+
+  function saveKb() {
+    try {
+      localStorage.setItem("aiChatKB", JSON.stringify(kbDocs.filter(function (d) { return !d.loading; })));
+    } catch (e) {
+      showAttachErr("Vidensbasen kunne ikke gemmes — browserens lager er fuldt. Slet et dokument og prøv igen.");
+    }
+  }
+
+  function docType(name) { return /\.pdf$/i.test(name) ? "PDF" : "Tekst"; }
 
   var suggestions = [
     { label: "Opsummér et dokument", icon: ICONS.doc },
@@ -386,9 +404,15 @@
 
   /* ---------- Knowledge base ---------- */
   function renderDocs() {
-    el("docs").innerHTML = docs.map(function (d) {
-      return '<div class="doc-row"><div class="doc-icon">' + ICONS.doc + '</div>' +
-        '<div class="doc-body"><div class="doc-name">' + esc(d.name) + '</div><div class="doc-meta">' + esc(d.meta) + "</div></div></div>";
+    if (!kbDocs.length) {
+      el("docs").innerHTML = '<div class="kb-empty">Ingen dokumenter endnu — klik + for at uploade tekstfiler eller PDF.</div>';
+      return;
+    }
+    el("docs").innerHTML = kbDocs.map(function (d) {
+      return '<div class="doc-row"><div class="doc-icon">' + ICONS.doc + "</div>" +
+        '<div class="doc-body"><div class="doc-name">' + esc(d.name) + '</div><div class="doc-meta">' +
+        (d.loading ? "læser…" : docType(d.name) + " · " + fmtSize(d.size)) + "</div></div>" +
+        '<button class="doc-del" data-id="' + d.id + '" title="Slet">' + ICONS.trash + "</button></div>";
     }).join("");
   }
 
@@ -548,25 +572,32 @@
     });
   }
 
+  function fileTypeError(file) {
+    if (file.size > MAX_FILE_BYTES) return '"' + file.name + '" er for stor (maks 5 MB).';
+    var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+    var isText = TEXT_EXT.test(file.name) || (file.type && file.type.indexOf("text/") === 0) || file.type === "application/json";
+    if (!isPdf && !isText) return '"' + file.name + '" understøttes ikke — vedhæft tekstfiler eller PDF.';
+    return null;
+  }
+
+  function readFileText(file) {
+    var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+    var read = isPdf ? extractPdf(file) : file.text();
+    return read.then(function (text) {
+      text = String(text || "").trim();
+      if (text.length > MAX_CHARS_PER_FILE) text = text.slice(0, MAX_CHARS_PER_FILE) + "\n… [afkortet]";
+      return text;
+    });
+  }
+
   function addFiles(fileList) {
     Array.prototype.forEach.call(fileList, function (file) {
-      if (file.size > MAX_FILE_BYTES) {
-        showAttachErr('"' + file.name + '" er for stor (maks 5 MB).');
-        return;
-      }
-      var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
-      var isText = TEXT_EXT.test(file.name) || (file.type && file.type.indexOf("text/") === 0) || file.type === "application/json";
-      if (!isPdf && !isText) {
-        showAttachErr('"' + file.name + '" understøttes ikke — vedhæft tekstfiler eller PDF.');
-        return;
-      }
+      var err = fileTypeError(file);
+      if (err) { showAttachErr(err); return; }
       var entry = { id: ++attachSeq, name: file.name, size: file.size, text: "", loading: true };
       pendingFiles.push(entry);
       renderAttachRow();
-      var read = isPdf ? extractPdf(file) : file.text();
-      read.then(function (text) {
-        text = String(text || "").trim();
-        if (text.length > MAX_CHARS_PER_FILE) text = text.slice(0, MAX_CHARS_PER_FILE) + "\n… [afkortet]";
+      readFileText(file).then(function (text) {
         if (!text) {
           pendingFiles = pendingFiles.filter(function (f) { return f !== entry; });
           showAttachErr('Kunne ikke finde tekst i "' + file.name + '".');
@@ -575,13 +606,39 @@
           entry.loading = false;
         }
         renderAttachRow();
-      }).catch(function (err) {
+      }).catch(function (err2) {
         pendingFiles = pendingFiles.filter(function (f) { return f !== entry; });
-        showAttachErr('Kunne ikke læse "' + file.name + '": ' + err.message);
+        showAttachErr('Kunne ikke læse "' + file.name + '": ' + err2.message);
         renderAttachRow();
       });
     });
     el("fileInput").value = "";
+  }
+
+  function addKbFiles(fileList) {
+    Array.prototype.forEach.call(fileList, function (file) {
+      var err = fileTypeError(file);
+      if (err) { showAttachErr(err); return; }
+      var entry = { id: "kb" + Date.now() + "-" + (++attachSeq), name: file.name, size: file.size, text: "", loading: true };
+      kbDocs.push(entry);
+      renderDocs();
+      readFileText(file).then(function (text) {
+        if (!text) {
+          kbDocs = kbDocs.filter(function (d) { return d !== entry; });
+          showAttachErr('Kunne ikke finde tekst i "' + file.name + '".');
+        } else {
+          entry.text = text;
+          entry.loading = false;
+          saveKb();
+        }
+        renderDocs();
+      }).catch(function (err2) {
+        kbDocs = kbDocs.filter(function (d) { return d !== entry; });
+        showAttachErr('Kunne ikke læse "' + file.name + '": ' + err2.message);
+        renderDocs();
+      });
+    });
+    el("kbFileInput").value = "";
   }
 
   function send() {
@@ -624,6 +681,10 @@
         .filter(function (m) { return m !== reply && (m.text || m.apiText); })
         .map(function (m) { return { role: m.role, content: m.apiText || m.text }; })
     };
+    var kbReady = kbDocs.filter(function (d) { return !d.loading && d.text; });
+    if (kbReady.length) {
+      payload.kb = kbReady.map(function (d) { return { name: d.name, text: d.text }; });
+    }
     var rerender = function () {
       if (state.activeId === threadId) { renderThread(); scrollBottom(); }
     };
@@ -735,6 +796,17 @@
   });
   document.addEventListener("click", function () {
     if (state.modelOpen) { state.modelOpen = false; renderModel(); }
+  });
+
+  el("kbAddBtn").addEventListener("click", function () { el("kbFileInput").click(); });
+  el("kbFileInput").addEventListener("change", function (e) { addKbFiles(e.target.files); });
+  el("docs").addEventListener("click", function (e) {
+    var b = e.target.closest(".doc-del");
+    if (!b) return;
+    var id = b.getAttribute("data-id");
+    kbDocs = kbDocs.filter(function (d) { return String(d.id) !== id; });
+    saveKb();
+    renderDocs();
   });
 
   el("attachBtn").addEventListener("click", function () { el("fileInput").click(); });
