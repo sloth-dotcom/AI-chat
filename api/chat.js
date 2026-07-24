@@ -50,6 +50,7 @@ module.exports = async function handler(req, res) {
         model: MODEL_MAP[model] || DEFAULT_MODEL,
         messages: [{ role: "system", content: SYSTEM_PROMPT }, ...chat],
         stream: true,
+        thinking: { type: "disabled" },
       }),
     });
   } catch (err) {
