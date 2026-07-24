@@ -138,6 +138,18 @@
 
   .input-row{display:flex;align-items:flex-end;gap:10px;border:1px solid var(--line-strong);background:var(--panel);border-radius:14px;padding:8px;transition:border-color .15s}
   .input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .input-row.drag{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+  .attach-row{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 8px}
+  .attach-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line-strong);background:var(--panel);border-radius:9px;font-size:12.5px;color:var(--text);max-width:280px}
+  .attach-chip .an{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+  .attach-chip .as{color:var(--muted-2);flex:none}
+  .attach-chip.loading .as{color:var(--accent)}
+  .attach-chip .ax{border:none;background:transparent;color:var(--muted);cursor:pointer;padding:0 2px;flex:none;font-size:13px;line-height:1;border-radius:4px}
+  .attach-chip .ax:hover{color:#B0563C}
+  .attach-err{font-size:12.5px;color:#B0563C;padding:0 0 8px}
+  .bubble-files{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+  .bubble-file{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
   .attach-btn{width:38px;height:38px;flex:none;border-radius:9px}
   .input-row textarea{flex:1;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:14.5px;line-height:1.5;color:var(--text);padding:9px 4px;max-height:160px}
   .send-btn{width:38px;height:38px;flex:none;border:none;border-radius:9px;display:flex;align-items:center;justify-content:center;transition:background .15s;background:#E3E1DB;color:#b7b3aa;cursor:not-allowed}
@@ -237,8 +249,12 @@
           <div class="model-menu" id="modelMenu"></div>
         </div>
 
-        <div class="input-row">
-          <button class="ghost-btn attach-btn" title="Vedhæft dokument">
+        <div class="attach-row" id="attachRow" style="display:none"></div>
+        <div class="attach-err" id="attachErr" style="display:none"></div>
+        <input type="file" id="fileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,text/*,application/pdf,application/json">
+
+        <div class="input-row" id="inputRow">
+          <button class="ghost-btn attach-btn" id="attachBtn" title="Vedhæft dokument">
             <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M209.66 122.34a8 8 0 0 1 0 11.32l-82.05 82a56 56 0 0 1-79.2-79.2l84.68-84.69a40 40 0 0 1 56.57 56.57L104.4 193.14a24 24 0 0 1-33.94-33.94L149.66 80a8 8 0 0 1 11.31 11.31L81.8 170.51a8 8 0 0 0 11.31 11.32l84.69-84.69a24 24 0 0 0-33.94-33.94L59.16 148A40 40 0 0 0 115.72 204.55l82.62-82.21a8 8 0 0 1 11.32 0Z"/></svg>
           </button>
           <textarea id="draft" rows="1" placeholder="Skriv en besked…"></textarea>
@@ -391,7 +407,12 @@
     } else {
       el("thread").innerHTML = '<div class="messages">' + thread.messages.map(function (m) {
         if (m.role === "user") {
-          return '<div class="msg user"><div class="user-bubble">' + esc(m.text) + "</div></div>";
+          var chips = (m.attachments || []).map(function (a) {
+            return '<span class="bubble-file"><span style="color:var(--accent);display:flex">' + ICONS.doc + "</span>" +
+              esc(a.name) + ' <span style="color:var(--muted-2)">(' + fmtSize(a.size) + ")</span></span>";
+          }).join("");
+          return '<div class="msg user"><div class="user-bubble">' + esc(m.text) +
+            (chips ? '<div class="bubble-files">' + chips + "</div>" : "") + "</div></div>";
         }
         var src = m.hasSource
           ? '<div class="source-chip"><svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg><span class="k">Kilde:</span><span class="v">' + esc(m.source) + "</span></div>"
@@ -432,7 +453,9 @@
 
   /* ---------- Composer ---------- */
   function renderSend() {
-    el("sendBtn").classList.toggle("ready", draftEl.value.trim().length > 0);
+    var hasText = draftEl.value.trim().length > 0;
+    var anyLoading = pendingFiles.some(function (f) { return f.loading; });
+    el("sendBtn").classList.toggle("ready", (hasText || pendingFiles.length > 0) && !anyLoading);
   }
 
   function autosize() {
@@ -445,16 +468,145 @@
     sc.scrollTop = sc.scrollHeight;
   }
 
+  /* ---------- Attachments ---------- */
+  var PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+  var PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  var TEXT_EXT = /\.(txt|md|markdown|csv|json|log|xml|yml|yaml|html?|css|js|ts|jsx|tsx|py|java|c|h|cpp|sql|sh)$/i;
+  var MAX_FILE_BYTES = 5 * 1024 * 1024;
+  var MAX_CHARS_PER_FILE = 30000;
+
+  var pendingFiles = [];
+  var attachSeq = 0;
+  var pdfjsPromise = null;
+
+  function fmtSize(b) {
+    return b < 1048576 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1048576).toFixed(1).replace(".", ",") + " MB";
+  }
+
+  function showAttachErr(msg) {
+    var e = el("attachErr");
+    e.textContent = msg;
+    e.style.display = "block";
+    clearTimeout(showAttachErr._t);
+    showAttachErr._t = setTimeout(function () { e.style.display = "none"; }, 6000);
+  }
+
+  function renderAttachRow() {
+    var row = el("attachRow");
+    if (!pendingFiles.length) {
+      row.style.display = "none";
+      row.innerHTML = "";
+    } else {
+      row.style.display = "flex";
+      row.innerHTML = pendingFiles.map(function (f) {
+        return '<span class="attach-chip' + (f.loading ? " loading" : "") + '">' +
+          '<span style="color:var(--accent);display:flex">' + ICONS.doc + "</span>" +
+          '<span class="an">' + esc(f.name) + "</span>" +
+          '<span class="as">' + (f.loading ? "læser…" : fmtSize(f.size)) + "</span>" +
+          '<button class="ax" data-id="' + f.id + '" title="Fjern">✕</button>' +
+          "</span>";
+      }).join("");
+    }
+    renderSend();
+  }
+
+  function loadPdfJs() {
+    if (!pdfjsPromise) {
+      pdfjsPromise = new Promise(function (resolve, reject) {
+        if (window.pdfjsLib) { resolve(window.pdfjsLib); return; }
+        var s = document.createElement("script");
+        s.src = PDFJS_URL;
+        s.onload = function () {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+          resolve(window.pdfjsLib);
+        };
+        s.onerror = function () { pdfjsPromise = null; reject(new Error("kunne ikke indlæse PDF-læseren")); };
+        document.head.appendChild(s);
+      });
+    }
+    return pdfjsPromise;
+  }
+
+  function extractPdf(file) {
+    return loadPdfJs().then(function (pdfjs) {
+      return file.arrayBuffer().then(function (buf) {
+        return pdfjs.getDocument({ data: buf }).promise;
+      }).then(function (doc) {
+        var chain = Promise.resolve("");
+        var pn;
+        var addPage = function (p) {
+          chain = chain.then(function (acc) {
+            if (acc.length > MAX_CHARS_PER_FILE) return acc;
+            return doc.getPage(p).then(function (page) { return page.getTextContent(); }).then(function (tc) {
+              return acc + tc.items.map(function (it) { return it.str; }).join(" ") + "\n";
+            });
+          });
+        };
+        for (pn = 1; pn <= doc.numPages; pn++) addPage(pn);
+        return chain;
+      });
+    });
+  }
+
+  function addFiles(fileList) {
+    Array.prototype.forEach.call(fileList, function (file) {
+      if (file.size > MAX_FILE_BYTES) {
+        showAttachErr('"' + file.name + '" er for stor (maks 5 MB).');
+        return;
+      }
+      var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+      var isText = TEXT_EXT.test(file.name) || (file.type && file.type.indexOf("text/") === 0) || file.type === "application/json";
+      if (!isPdf && !isText) {
+        showAttachErr('"' + file.name + '" understøttes ikke — vedhæft tekstfiler eller PDF.');
+        return;
+      }
+      var entry = { id: ++attachSeq, name: file.name, size: file.size, text: "", loading: true };
+      pendingFiles.push(entry);
+      renderAttachRow();
+      var read = isPdf ? extractPdf(file) : file.text();
+      read.then(function (text) {
+        text = String(text || "").trim();
+        if (text.length > MAX_CHARS_PER_FILE) text = text.slice(0, MAX_CHARS_PER_FILE) + "\n… [afkortet]";
+        if (!text) {
+          pendingFiles = pendingFiles.filter(function (f) { return f !== entry; });
+          showAttachErr('Kunne ikke finde tekst i "' + file.name + '".');
+        } else {
+          entry.text = text;
+          entry.loading = false;
+        }
+        renderAttachRow();
+      }).catch(function (err) {
+        pendingFiles = pendingFiles.filter(function (f) { return f !== entry; });
+        showAttachErr('Kunne ikke læse "' + file.name + '": ' + err.message);
+        renderAttachRow();
+      });
+    });
+    el("fileInput").value = "";
+  }
+
   function send() {
     var text = draftEl.value.trim();
-    if (!text) return;
+    var files = pendingFiles.slice();
+    if (!text && !files.length) return;
+    if (files.some(function (f) { return f.loading; })) return; // wait for extraction
     var thread = getThread(state.activeId);
     var last = thread.messages[thread.messages.length - 1];
     if (last && last.streaming) return; // one reply at a time per thread
     if (state.activeId === "_new" && !thread.messages.length) {
-      thread.title = text.slice(0, 40);
+      thread.title = (text || files[0].name).slice(0, 40);
     }
-    thread.messages.push({ role: "user", text: text });
+    var apiText = text || "Se den vedhæftede fil.";
+    files.forEach(function (f) {
+      apiText += "\n\n[Vedhæftet fil: " + f.name + "]\n---\n" + f.text + "\n---";
+    });
+    thread.messages.push({
+      role: "user",
+      text: text,
+      attachments: files.map(function (f) { return { name: f.name, size: f.size }; }),
+      apiText: apiText
+    });
+    pendingFiles = [];
+    renderAttachRow();
     var reply = { role: "assistant", text: "", streaming: true };
     thread.messages.push(reply);
     draftEl.value = "";
@@ -469,8 +621,8 @@
     var payload = {
       model: state.activeModel,
       messages: thread.messages
-        .filter(function (m) { return m !== reply && m.text; })
-        .map(function (m) { return { role: m.role, content: m.text }; })
+        .filter(function (m) { return m !== reply && (m.text || m.apiText); })
+        .map(function (m) { return { role: m.role, content: m.apiText || m.text }; })
     };
     var rerender = function () {
       if (state.activeId === threadId) { renderThread(); scrollBottom(); }
@@ -536,6 +688,8 @@
     state.activeId = "_new";
     state.modelOpen = false;
     threads._new = { title: "Ny chat", messages: [] };
+    pendingFiles = [];
+    renderAttachRow();
     draftEl.value = "";
     autosize();
     renderGroups();
@@ -581,6 +735,26 @@
   });
   document.addEventListener("click", function () {
     if (state.modelOpen) { state.modelOpen = false; renderModel(); }
+  });
+
+  el("attachBtn").addEventListener("click", function () { el("fileInput").click(); });
+  el("fileInput").addEventListener("change", function (e) { addFiles(e.target.files); });
+  el("attachRow").addEventListener("click", function (e) {
+    var x = e.target.closest(".ax");
+    if (!x) return;
+    var id = Number(x.getAttribute("data-id"));
+    pendingFiles = pendingFiles.filter(function (f) { return f.id !== id; });
+    renderAttachRow();
+  });
+  var inputRow = el("inputRow");
+  ["dragover", "dragenter"].forEach(function (ev) {
+    inputRow.addEventListener(ev, function (e) { e.preventDefault(); inputRow.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    inputRow.addEventListener(ev, function (e) { e.preventDefault(); inputRow.classList.remove("drag"); });
+  });
+  inputRow.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   });
 
   draftEl.addEventListener("input", function () { autosize(); renderSend(); });
