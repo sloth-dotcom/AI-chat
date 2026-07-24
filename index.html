@@ -79,6 +79,19 @@
   .doc-del:hover{background:#EAEAEE;color:#E2400B}
   .kb-empty{padding:8px;font-size:12px;color:var(--muted-2);line-height:1.5}
 
+  .mcp-input{width:100%;height:34px;padding:0 10px;border:1px solid var(--line);background:var(--panel);border-radius:7px;font-size:12.5px;color:var(--text);outline:none;font-family:inherit;margin-top:6px}
+  .mcp-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .mcp-btn{height:30px;padding:0 12px;border:none;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  .mcp-save{background:var(--accent);color:#fff}
+  .mcp-save:hover{background:var(--accent-hover)}
+  .mcp-save:disabled{opacity:.6;cursor:wait}
+  .mcp-cancel{background:transparent;color:var(--muted)}
+  .mcp-cancel:hover{background:#F5F6F8;color:var(--text)}
+
+  .tool-status{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .msg-img{max-width:min(100%,360px);border-radius:10px;border:1px solid var(--line);display:block;margin:8px 0}
+  .assistant-text a{word-break:break-all}
+
   .user-footer{border-top:1px solid var(--line);padding:10px 12px;display:flex;align-items:center;gap:10px}
   .avatar{width:34px;height:34px;flex:none;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
   .user-body{flex:1;min-width:0}
@@ -262,6 +275,26 @@
           <input type="file" id="kbFileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,text/*,application/pdf,application/json">
           <div id="docs"></div>
         </div>
+
+        <!-- Integrationer (MCP) -->
+        <div class="kb">
+          <div class="kb-head">
+            <div class="group-label">Integrationer</div>
+            <button class="ghost-btn kb-add" id="mcpAddBtn" title="Tilføj MCP-server">
+              <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>
+            </button>
+          </div>
+          <div id="mcpForm" style="display:none;padding:0 8px 8px">
+            <input class="mcp-input" id="mcpName" placeholder="Navn (fx Exa websøgning)">
+            <input class="mcp-input" id="mcpUrl" placeholder="MCP-URL (https://…)">
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button class="mcp-btn mcp-save" id="mcpSave">Forbind</button>
+              <button class="mcp-btn mcp-cancel" id="mcpCancel">Annullér</button>
+            </div>
+            <div class="attach-err" id="mcpErr" style="display:none;padding:6px 0 0"></div>
+          </div>
+          <div id="mcpList"></div>
+        </div>
       </div>
 
       <div class="user-footer">
@@ -350,7 +383,8 @@
     check: '<svg width="16" height="16" viewBox="0 0 256 256" fill="var(--accent)"><path d="M229.66 77.66l-128 128a8 8 0 0 1-11.32 0l-56-56a8 8 0 0 1 11.32-11.32L96 188.69 218.34 66.34a8 8 0 0 1 11.32 11.32Z"/></svg>',
     trash: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M216 48h-40v-8a24 24 0 0 0-24-24h-48a24 24 0 0 0-24 24v8H40a8 8 0 0 0 0 16h8v144a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16V64h8a8 8 0 0 0 0-16ZM96 40a8 8 0 0 1 8-8h48a8 8 0 0 1 8 8v8H96Zm96 168H64V64h128Zm-80-104v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Zm48 0v64a8 8 0 0 1-16 0v-64a8 8 0 0 1 16 0Z"/></svg>',
     clock: '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm64-88a8 8 0 0 1-8 8h-56a8 8 0 0 1-8-8V80a8 8 0 0 1 16 0v48h48a8 8 0 0 1 8 8Z"/></svg>',
-    spark: '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M208 144a15.78 15.78 0 0 1-10.42 14.94l-51.65 19-19 51.61a15.92 15.92 0 0 1-29.88 0l-19-51.66-51.61-19a15.92 15.92 0 0 1 0-29.88l51.65-19 19-51.61a15.92 15.92 0 0 1 29.88 0l19 51.65 51.61 19A15.78 15.78 0 0 1 208 144ZM152 48h16v16a8 8 0 0 0 16 0V48h16a8 8 0 0 0 0-16h-16V16a8 8 0 0 0-16 0v16h-16a8 8 0 0 0 0 16Zm88 32h-8v-8a8 8 0 0 0-16 0v8h-8a8 8 0 0 0 0 16h8v8a8 8 0 0 0 16 0v-8h8a8 8 0 0 0 0-16Z"/></svg>'
+    spark: '<svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M208 144a15.78 15.78 0 0 1-10.42 14.94l-51.65 19-19 51.61a15.92 15.92 0 0 1-29.88 0l-19-51.66-51.61-19a15.92 15.92 0 0 1 0-29.88l51.65-19 19-51.61a15.92 15.92 0 0 1 29.88 0l19 51.65 51.61 19A15.78 15.78 0 0 1 208 144ZM152 48h16v16a8 8 0 0 0 16 0V48h16a8 8 0 0 0 0-16h-16V16a8 8 0 0 0-16 0v16h-16a8 8 0 0 0 0 16Zm88 32h-8v-8a8 8 0 0 0-16 0v8h-8a8 8 0 0 0 0 16h8v8a8 8 0 0 0 16 0v-8h8a8 8 0 0 0 0-16Z"/></svg>',
+    bolt: '<svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-14.66 73.33a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.98-7.34Z"/></svg>'
   };
 
   var state = {
@@ -430,6 +464,17 @@
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
+  // Escape, then turn URLs into links and image URLs into inline images.
+  function renderRich(s) {
+    return esc(s).replace(/https?:\/\/[^\s<>"']+/g, function (u) {
+      var clean = u.replace(/(?:[),.;!?]|&quot;)+$/, "");
+      var trail = u.slice(clean.length);
+      var isImg = /\.(png|jpe?g|gif|webp)(\?|&|$)/i.test(clean) || /images\.unsplash\.com/i.test(clean);
+      if (isImg) return '<img class="msg-img" src="' + clean + '" alt="" loading="lazy">' + trail;
+      return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer">' + clean + "</a>" + trail;
+    });
+  }
+
   /* ---------- Sidebar groups ---------- */
   function renderGroups() {
     var q = state.query.trim().toLowerCase();
@@ -499,8 +544,9 @@
           ? '<div class="source-chip"><svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg><span class="k">Kilde:</span><span class="v">' + esc(m.source) + "</span></div>"
           : "";
         var body = m.streaming && !m.text
-          ? '<div class="typing"><span></span><span></span><span></span></div>'
-          : '<div class="assistant-text' + (m.error ? " error" : "") + '">' + esc(m.text) + "</div>";
+          ? '<div class="typing"><span></span><span></span><span></span></div>' +
+            (m.statusText ? '<div class="tool-status">' + esc(m.statusText) + "</div>" : "")
+          : '<div class="assistant-text' + (m.error ? " error" : "") + '">' + renderRich(m.text) + "</div>";
         return '<div class="msg assistant"><div class="assistant-row">' +
           '<div class="bot-avatar">' + ICONS.bot + '</div>' +
           '<div class="assistant-body">' + body + src + "</div>" +
@@ -813,6 +859,28 @@
     streamReply(state.activeId, thread, reply);
   }
 
+  /* ---------- Integrationer (MCP) ---------- */
+  var mcpServers = [];
+
+  function renderMcp() {
+    if (!mcpServers.length) {
+      el("mcpList").innerHTML = '<div class="kb-empty">Ingen integrationer — tilføj en MCP-server med +.</div>';
+      return;
+    }
+    el("mcpList").innerHTML = mcpServers.map(function (s) {
+      return '<div class="doc-row"><div class="doc-icon">' + ICONS.bolt + "</div>" +
+        '<div class="doc-body"><div class="doc-name">' + esc(s.name) + '</div><div class="doc-meta">' +
+        s.tools.length + (s.tools.length === 1 ? " værktøj" : " værktøjer") + "</div></div>" +
+        '<button class="doc-del" data-mcp="' + s.id + '" title="Fjern">' + ICONS.trash + "</button></div>";
+    }).join("");
+  }
+
+  function loadMcp() {
+    return fetch("/api/mcp").then(function (r) { return r.ok ? r.json() : { servers: [] }; })
+      .then(function (d) { mcpServers = d.servers || []; renderMcp(); })
+      .catch(function () { mcpServers = []; renderMcp(); });
+  }
+
   /* ---------- Persistence ---------- */
   var saveTimer = null;
   function saveChats() {
@@ -891,6 +959,8 @@
             if (!data || data === "[DONE]") return;
             try {
               var j = JSON.parse(data);
+              if (j.status) { reply.statusText = j.status; }
+              if (j.error) { reply.error = true; reply.text += (reply.text ? "\n" : "") + j.error; }
               var delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
               if (delta) reply.text += delta;
             } catch (e) { /* partial frame — ignored */ }
@@ -1004,6 +1074,58 @@
     if (state.modelOpen) { state.modelOpen = false; renderModel(); }
   });
 
+  el("mcpAddBtn").addEventListener("click", function () {
+    var f = el("mcpForm");
+    f.style.display = f.style.display === "none" ? "block" : "none";
+    if (f.style.display === "block") el("mcpName").focus();
+  });
+  el("mcpCancel").addEventListener("click", function () {
+    el("mcpForm").style.display = "none";
+    el("mcpErr").style.display = "none";
+  });
+  el("mcpSave").addEventListener("click", function () {
+    var name = el("mcpName").value.trim();
+    var url = el("mcpUrl").value.trim();
+    var err = el("mcpErr");
+    err.style.display = "none";
+    if (!name || !url) {
+      err.textContent = "Udfyld både navn og URL.";
+      err.style.display = "block";
+      return;
+    }
+    var btn = el("mcpSave");
+    btn.disabled = true;
+    btn.textContent = "Forbinder…";
+    fetch("/api/mcp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name, url: url })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (!res.ok) throw new Error(res.j.error || "Kunne ikke forbinde.");
+      mcpServers.push(res.j.server);
+      renderMcp();
+      el("mcpForm").style.display = "none";
+      el("mcpName").value = "";
+      el("mcpUrl").value = "";
+    }).catch(function (e2) {
+      err.textContent = e2.message;
+      err.style.display = "block";
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = "Forbind";
+    });
+  });
+  el("mcpList").addEventListener("click", function (e) {
+    var b = e.target.closest(".doc-del");
+    if (!b) return;
+    var id = b.getAttribute("data-mcp");
+    fetch("/api/mcp?id=" + encodeURIComponent(id), { method: "DELETE" }).catch(function () {});
+    mcpServers = mcpServers.filter(function (s) { return s.id !== id; });
+    renderMcp();
+  });
+
   el("kbAddBtn").addEventListener("click", function () { el("kbFileInput").click(); });
   el("kbFileInput").addEventListener("change", function (e) { addKbFiles(e.target.files); });
   el("docs").addEventListener("click", function (e) {
@@ -1064,6 +1186,8 @@
     newThread = { title: "Ny chat", messages: [] };
     renderGroups();
     renderDocs();
+    renderMcp();
+    loadMcp();
     renderModel();
     renderSend();
     renderThread();
