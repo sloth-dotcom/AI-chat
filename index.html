@@ -89,6 +89,8 @@
   .mcp-cancel:hover{background:#F5F6F8;color:var(--text)}
 
   .tool-status{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .route-chip{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:11.5px;color:var(--muted);}
+  .route-chip svg{color:var(--accent)}
   .msg-img{max-width:min(100%,360px);border-radius:10px;border:1px solid var(--line);display:block;margin:8px 0}
   .assistant-text a{word-break:break-all}
 
@@ -391,12 +393,13 @@
     sidebarCollapsed: false,
     query: "",
     modelOpen: false,
-    activeModel: "GLM-5.2",
+    activeModel: "Auto",
     activeId: "_new"
   };
   var currentUser = null;
 
   var models = [
+    { id: "Auto", name: "Auto", pill: "EU", desc: "Routeren vælger den bedste model til opgaven" },
     { id: "GLM-5.2", name: "GLM-5.2", pill: "EU", desc: "Hurtig og alsidig · EU-hostet" },
     { id: "Kimi K3", name: "Kimi K3", pill: "EU", desc: "Lang kontekst · EU-hostet" },
     { id: "Mistral (EU)", name: "Mistral", pill: "EU", desc: "Fransk model · EU-hostet" }
@@ -462,6 +465,21 @@
 
   function esc(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // Human label for the router's reason field (the product's "why").
+  function reasonLabel(r) {
+    if (!r) return "";
+    if (r === "manual") return "manuelt valg";
+    if (r === "failopen") return "fallback";
+    if (r === "rule:short_simple") return "kort & simpel";
+    if (r === "rule:code_detected") return "kode registreret";
+    if (r === "rule:budget_cap") return "budgetloft nået";
+    var h = r.match(/^heuristic:score=(\d+)/);
+    if (h) return "heuristik · score " + h[1];
+    var p = r.match(/^ml:p=([\d.]+)/);
+    if (p) return "P(godt nok) = " + p[1];
+    return r;
   }
 
   // Escape, then turn URLs into links and image URLs into inline images.
@@ -543,10 +561,14 @@
         var src = m.hasSource
           ? '<div class="source-chip"><svg width="14" height="14" viewBox="0 0 256 256" fill="var(--accent)"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg><span class="k">Kilde:</span><span class="v">' + esc(m.source) + "</span></div>"
           : "";
+        var routeChip = m.routing
+          ? '<div class="route-chip"><svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-14.66 73.33a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.98-7.34Z"/></svg>Auto → ' +
+            esc(m.routing.model) + " · " + esc(reasonLabel(m.routing.reason)) + "</div>"
+          : "";
         var body = m.streaming && !m.text
           ? '<div class="typing"><span></span><span></span><span></span></div>' +
             (m.statusText ? '<div class="tool-status">' + esc(m.statusText) + "</div>" : "")
-          : '<div class="assistant-text' + (m.error ? " error" : "") + '">' + renderRich(m.text) + "</div>";
+          : '<div class="assistant-text' + (m.error ? " error" : "") + '">' + renderRich(m.text) + "</div>" + routeChip;
         return '<div class="msg assistant"><div class="assistant-row">' +
           '<div class="bot-avatar">' + ICONS.bot + '</div>' +
           '<div class="assistant-body">' + body + src + "</div>" +
@@ -896,6 +918,7 @@
             var o = { role: m.role, text: m.text };
             if (m.apiText) o.apiText = m.apiText;
             if (m.attachments && m.attachments.length) o.attachments = m.attachments;
+            if (m.routing) o.routing = m.routing;
             if (m.error) o.error = true;
             return o;
           })
@@ -920,6 +943,7 @@
   function streamReply(threadId, thread, reply) {
     var payload = {
       model: state.activeModel,
+      threadId: threadId,
       messages: thread.messages
         .filter(function (m) { return m !== reply && (m.text || m.apiText); })
         .map(function (m) { return { role: m.role, content: m.apiText || m.text }; })
@@ -959,6 +983,7 @@
             if (!data || data === "[DONE]") return;
             try {
               var j = JSON.parse(data);
+              if (j.routing) { reply.routing = j.routing; }
               if (j.status) { reply.statusText = j.status; }
               if (j.error) { reply.error = true; reply.text += (reply.text ? "\n" : "") + j.error; }
               var delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;

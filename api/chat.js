@@ -31,6 +31,41 @@ const SYSTEM_PROMPT =
   "Du er en hjælpsom AI-assistent for en dansk virksomhed. " +
   "Svar klart og præcist på dansk, medmindre brugeren skriver på et andet sprog.";
 
+// ---- Model-routing (gdpr-chat-router) ----
+// "Auto" in the picker: the router chooses the cheapest good-enough tier per
+// message; tiers map to the providers below. Fail-open UPWARD to Kimi (top).
+const ROUTER_URL = process.env.ROUTER_URL || "https://gdpr-chat-router.vercel.app";
+const ROUTER_TENANT = process.env.ROUTER_TENANT || "colourbox";
+const TIER_TO_PROVIDER = {
+  cheap: "GLM-5.2",
+  mid: "Mistral (EU)",
+  top: "Kimi K3",
+};
+
+async function routeAuto(chat, kb, conversationId) {
+  const lastUser = [...chat].reverse().find((m) => m.role === "user");
+  const kbChars = Array.isArray(kb)
+    ? kb.reduce((n, d) => n + ((d && d.text) || "").length, 0)
+    : 0;
+  const r = await fetch(ROUTER_URL + "/route", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(3000),
+    body: JSON.stringify({
+      tenant_id: ROUTER_TENANT,
+      conversation_id: String(conversationId || "ai-chat"),
+      message: (lastUser && lastUser.content) || "",
+      context_meta: {
+        conversation_depth: chat.length,
+        rag_tokens: Math.floor(kbChars / 4),
+        attachment_tokens: 0,
+      },
+    }),
+  });
+  if (!r.ok) throw new Error("router " + r.status);
+  return r.json(); // { decision_id, model: tier, reason, ... }
+}
+
 function sseHeaders(res) {
   res.writeHead(200, {
     "Content-Type": "text/event-stream; charset=utf-8",
@@ -54,8 +89,32 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const { messages, model, kb } = req.body || {};
-  const provider = PROVIDERS[model] || PROVIDERS["GLM-5.2"];
+  const { messages, model, kb, threadId } = req.body || {};
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    res.status(400).json({ error: "messages mangler" });
+    return;
+  }
+
+  const chat = messages
+    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
+    .slice(-40)
+    .map((m) => ({ role: m.role, content: m.content }));
+
+  // Resolve provider: the router's choice (Auto) or the user's manual pick.
+  let providerName = model;
+  let routing = null;
+  if (model === "Auto") {
+    try {
+      const d = await routeAuto(chat, kb, threadId);
+      providerName = TIER_TO_PROVIDER[d.model] || "Kimi K3";
+      routing = { model: providerName, tier: d.model, reason: d.reason, decision_id: d.decision_id };
+    } catch (e) {
+      providerName = "Kimi K3"; // fail-open upward (asymmetry principle)
+      routing = { model: providerName, tier: "top", reason: "failopen" };
+    }
+  }
+  const provider = PROVIDERS[providerName] || PROVIDERS["GLM-5.2"];
 
   const key = process.env[provider.keyEnv];
   if (!key) {
@@ -68,16 +127,6 @@ module.exports = async function handler(req, res) {
     });
     return;
   }
-
-  if (!Array.isArray(messages) || messages.length === 0) {
-    res.status(400).json({ error: "messages mangler" });
-    return;
-  }
-
-  const chat = messages
-    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-40)
-    .map((m) => ({ role: m.role, content: m.content }));
 
   // Knowledge-base documents from the client become a second system message.
   const systemMessages = [{ role: "system", content: SYSTEM_PROMPT }];
@@ -161,6 +210,7 @@ module.exports = async function handler(req, res) {
       return;
     }
     sseHeaders(res);
+    if (routing) sseSend(res, { routing });
     const reader = r.upstream.body.getReader();
     try {
       for (;;) {
@@ -177,6 +227,7 @@ module.exports = async function handler(req, res) {
 
   // ---------- Path 2: MCP tool loop ----------
   sseHeaders(res);
+  if (routing) sseSend(res, { routing });
   const msgs = [...systemMessages, ...chat];
   try {
     for (let round = 0; round < 4; round++) {
