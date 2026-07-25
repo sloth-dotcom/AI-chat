@@ -158,22 +158,27 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify(Object.assign({ model: modelId }, provider.extra || {}, body)),
     });
 
-  // Call upstream with one automatic fallback-model retry on engine overload.
+  // Call upstream with retries on transient errors (429/5xx — rate limits,
+  // engine overload) and automatic fallback to the provider's sibling model.
   async function callWithFallback(body) {
-    let upstream = await makeCall(provider.model(), body);
-    if (!upstream.ok && provider.fallbackModel) {
-      const detail = await upstream.text().catch(() => "");
-      if (upstream.status === 429 && detail.includes("overloaded")) {
-        upstream = await makeCall(provider.fallbackModel(), body);
-      } else {
-        return { upstream: null, status: upstream.status, detail };
+    const models = [provider.model()];
+    if (provider.fallbackModel) models.push(provider.fallbackModel());
+    let status = 502;
+    let detail = "";
+    for (const m of models) {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const upstream = await makeCall(m, body);
+        if (upstream.ok) return { upstream };
+        status = upstream.status;
+        detail = await upstream.text().catch(() => "");
+        if (status === 429 || status >= 500) {
+          await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
+          continue; // transient — retry same model
+        }
+        return { upstream: null, status, detail }; // non-retryable
       }
     }
-    if (!upstream.ok) {
-      const detail = await upstream.text().catch(() => "");
-      return { upstream: null, status: upstream.status, detail };
-    }
-    return { upstream };
+    return { upstream: null, status, detail };
   }
 
   // ---------- MCP tool definitions ----------
