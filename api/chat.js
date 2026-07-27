@@ -50,7 +50,7 @@ async function routeAuto(chat, kb, conversationId) {
   const r = await fetch(ROUTER_URL + "/route", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    signal: AbortSignal.timeout(3000),
+    signal: AbortSignal.timeout(5000),  // covers the router's serverless cold start
     body: JSON.stringify({
       tenant_id: ROUTER_TENANT,
       conversation_id: String(conversationId || "ai-chat"),
