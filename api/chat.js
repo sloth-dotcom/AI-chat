@@ -251,52 +251,86 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // ---------- Path 2: MCP tool loop ----------
+  // ---------- Path 2: MCP tool loop (streaming) ----------
+  // Each round streams: content deltas are piped to the client live, while
+  // tool-call fragments are accumulated from the deltas. When a round ends
+  // with tool calls, they run (with status events) and the loop continues.
   sseHeaders(res);
   if (routing) sseSend(res, { routing });
   const msgs = [...systemMessages, ...chat];
+
+  async function streamRound(body) {
+    const r = await callWithFallback(Object.assign({}, body, { stream: true }));
+    if (!r.upstream) return { error: r };
+    const toolCalls = [];
+    const reader = r.upstream.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        const s = line.trim();
+        if (!s.startsWith("data:")) continue;
+        const data = s.slice(5).trim();
+        if (!data || data === "[DONE]") continue;
+        let j;
+        try { j = JSON.parse(data); } catch (e) { continue; }
+        const delta = j.choices && j.choices[0] && j.choices[0].delta;
+        if (!delta) continue;
+        if (delta.content) sseSend(res, { choices: [{ delta: { content: delta.content } }] });
+        if (delta.reasoning_content) sseSend(res, { choices: [{ delta: { reasoning_content: "…" } }] });
+        if (Array.isArray(delta.tool_calls)) {
+          for (const tc of delta.tool_calls) {
+            const i = tc.index || 0;
+            toolCalls[i] = toolCalls[i] || { id: tc.id || "call_" + i, type: "function", function: { name: "", arguments: "" } };
+            if (tc.id) toolCalls[i].id = tc.id;
+            if (tc.function && tc.function.name) toolCalls[i].function.name = tc.function.name;
+            if (tc.function && tc.function.arguments) toolCalls[i].function.arguments += tc.function.arguments;
+          }
+        }
+      }
+    }
+    return { toolCalls: toolCalls.filter(Boolean), provName: r.provName };
+  }
+
   try {
     for (let round = 0; round < 4; round++) {
-      const lastRound = round === 3;
-      const r = await callWithFallback({
+      const result = await streamRound({
         messages: msgs,
-        stream: false,
-        tools: lastRound ? undefined : toolDefs,
+        tools: round === 3 ? undefined : toolDefs,
       });
-      if (!r.upstream) {
-        sseSend(res, { error: "Model-API'et svarede med fejl " + r.status + ": " + (r.detail || "").slice(0, 300) });
+      if (result.error) {
+        sseSend(res, { error: "Model-API'et svarede med fejl " + result.error.status + ": " + (result.error.detail || "").slice(0, 300) });
         break;
       }
-      if (routing && r.provName && r.provName !== routing.model) {
-        routing.model = r.provName;
+      if (routing && result.provName && result.provName !== routing.model) {
+        routing.model = result.provName;
         routing.escalated = true;
         sseSend(res, { routing });
       }
-      const data = await r.upstream.json();
-      const msg = data.choices && data.choices[0] && data.choices[0].message;
-      if (msg && Array.isArray(msg.tool_calls) && msg.tool_calls.length) {
-        msgs.push({ role: "assistant", content: msg.content || "", tool_calls: msg.tool_calls });
-        for (const tc of msg.tool_calls.slice(0, 5)) {
-          const meta = toolMap[tc.function && tc.function.name];
-          sseSend(res, { status: "Bruger " + (meta ? meta.label + " · " + meta.name : "værktøj") + "…" });
-          let out;
-          if (!meta) {
-            out = "Ukendt værktøj.";
-          } else {
-            try {
-              const args = JSON.parse(tc.function.arguments || "{}");
-              out = await callTool(meta.url, meta.name, args);
-            } catch (e) {
-              out = "Værktøjsfejl: " + e.message;
-            }
+      if (!result.toolCalls.length) break; // content already streamed live
+      msgs.push({ role: "assistant", content: "", tool_calls: result.toolCalls });
+      for (const tc of result.toolCalls.slice(0, 5)) {
+        const meta = toolMap[tc.function && tc.function.name];
+        sseSend(res, { status: "Bruger " + (meta ? meta.label + " · " + meta.name : "værktøj") + "…" });
+        let out;
+        if (!meta) {
+          out = "Ukendt værktøj.";
+        } else {
+          try {
+            const args = JSON.parse(tc.function.arguments || "{}");
+            out = await callTool(meta.url, meta.name, args);
+          } catch (e) {
+            out = "Værktøjsfejl: " + e.message;
           }
-          msgs.push({ role: "tool", tool_call_id: tc.id, content: String(out || "").slice(0, 8000) });
         }
-        continue;
+        msgs.push({ role: "tool", tool_call_id: tc.id, content: String(out || "").slice(0, 8000) });
       }
-      const text = (msg && msg.content) || "";
-      sseSend(res, { choices: [{ delta: { content: text } }] });
-      break;
+      sseSend(res, { status: "Skriver svar…" });
     }
   } catch (err) {
     sseSend(res, { error: "Fejl i værktøjs-loop: " + err.message });
