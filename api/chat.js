@@ -148,34 +148,51 @@ module.exports = async function handler(req, res) {
     systemMessages.push({ role: "system", content: ctx });
   }
 
-  const makeCall = (modelId, body) =>
-    fetch(`${provider.base()}/chat/completions`, {
+  // In Auto mode a persistently failing provider escalates UPWARD to the
+  // next tier (never downward) — a rate-limited cheap model must never block
+  // an answer. Manual picks stay on the chosen provider.
+  const ESCALATION = { "GLM-5.2": "Mistral (EU)", "Mistral (EU)": "Kimi K3" };
+  const providerChain = [providerName];
+  if (model === "Auto") {
+    let cur = providerName;
+    while (ESCALATION[cur]) {
+      cur = ESCALATION[cur];
+      if (process.env[PROVIDERS[cur].keyEnv]) providerChain.push(cur);
+    }
+  }
+
+  const makeCall = (prov, provKey, modelId, body) =>
+    fetch(`${prov.base()}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${provKey}`,
       },
-      body: JSON.stringify(Object.assign({ model: modelId }, provider.extra || {}, body)),
+      body: JSON.stringify(Object.assign({ model: modelId }, prov.extra || {}, body)),
     });
 
-  // Call upstream with retries on transient errors (429/5xx — rate limits,
-  // engine overload) and automatic fallback to the provider's sibling model.
+  // Retries on transient errors (429/5xx), then sibling model, then — in
+  // Auto mode — the next provider in the escalation chain.
   async function callWithFallback(body) {
-    const models = [provider.model()];
-    if (provider.fallbackModel) models.push(provider.fallbackModel());
     let status = 502;
     let detail = "";
-    for (const m of models) {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const upstream = await makeCall(m, body);
-        if (upstream.ok) return { upstream };
-        status = upstream.status;
-        detail = await upstream.text().catch(() => "");
-        if (status === 429 || status >= 500) {
-          await new Promise((r) => setTimeout(r, 1200 * (attempt + 1)));
-          continue; // transient — retry same model
+    for (const provName of providerChain) {
+      const prov = PROVIDERS[provName];
+      const provKey = process.env[prov.keyEnv];
+      const models = [prov.model()];
+      if (prov.fallbackModel) models.push(prov.fallbackModel());
+      for (const m of models) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const upstream = await makeCall(prov, provKey, m, body);
+          if (upstream.ok) return { upstream, provName };
+          status = upstream.status;
+          detail = await upstream.text().catch(() => "");
+          if (status === 429 || status >= 500) {
+            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+            continue; // transient — retry same model
+          }
+          break; // non-retryable — try next model/provider
         }
-        return { upstream: null, status, detail }; // non-retryable
       }
     }
     return { upstream: null, status, detail };
@@ -214,6 +231,10 @@ module.exports = async function handler(req, res) {
       });
       return;
     }
+    if (routing && r.provName && r.provName !== routing.model) {
+      routing.model = r.provName;
+      routing.escalated = true;
+    }
     sseHeaders(res);
     if (routing) sseSend(res, { routing });
     const reader = r.upstream.body.getReader();
@@ -245,6 +266,11 @@ module.exports = async function handler(req, res) {
       if (!r.upstream) {
         sseSend(res, { error: "Model-API'et svarede med fejl " + r.status + ": " + (r.detail || "").slice(0, 300) });
         break;
+      }
+      if (routing && r.provName && r.provName !== routing.model) {
+        routing.model = r.provName;
+        routing.escalated = true;
+        sseSend(res, { routing });
       }
       const data = await r.upstream.json();
       const msg = data.choices && data.choices[0] && data.choices[0].message;

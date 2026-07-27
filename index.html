@@ -563,7 +563,8 @@
           : "";
         var routeChip = m.routing
           ? '<div class="route-chip"><svg width="12" height="12" viewBox="0 0 256 256" fill="currentColor"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-14.66 73.33a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.98-7.34Z"/></svg>Auto → ' +
-            esc(m.routing.model) + " · " + esc(reasonLabel(m.routing.reason)) + "</div>"
+            esc(m.routing.model) + " · " + esc(reasonLabel(m.routing.reason)) +
+            (m.routing.escalated ? " · eskaleret" : "") + "</div>"
           : "";
         var body = m.streaming && !m.text
           ? '<div class="typing"><span></span><span></span><span></span></div>' +
