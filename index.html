@@ -2,7 +2,7 @@
 <html lang="da">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AI Chat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -217,6 +217,24 @@
   .avatar img{width:100%;height:100%;object-fit:cover;display:block}
 
   .chip.chip-nudge{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+
+  /* ---------- Mobil (iPhone-app + mobil-Safari) ---------- */
+  .backdrop{display:none}
+  @media (max-width:700px){
+    .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:60;box-shadow:0 0 40px rgba(12,21,48,.25)}
+    .app.collapsed .sidebar{box-shadow:none}
+    .app:not(.collapsed) .backdrop{display:block;position:fixed;inset:0;z-index:50;background:rgba(12,21,48,.35)}
+    .topbar{padding:0 12px}
+    .thread{padding:20px 14px 16px}
+    .user-bubble{max-width:88%}
+    .assistant-row{gap:10px}
+    .composer{padding:0 10px calc(10px + env(safe-area-inset-bottom))}
+    .suggestions{padding-bottom:10px}
+    .chip{font-size:12px;padding:7px 11px}
+    .eu-pill{display:none}
+    .msg-img{max-width:100%}
+    .user-footer{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  }
 </style>
 </head>
 <body>
@@ -239,7 +257,7 @@
     </div>
   </div>
 </div>
-<div class="app" id="app" style="display:none">
+<div class="app" id="app" style="display:none"><div class="backdrop" id="backdrop"></div>
 
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar">
@@ -652,10 +670,22 @@
     el("searchDrop").innerHTML = html;
   }
 
+  function isMobile() {
+    return window.matchMedia("(max-width:700px)").matches;
+  }
+
+  function collapseSidebarOnMobile() {
+    if (isMobile() && !state.sidebarCollapsed) {
+      state.sidebarCollapsed = true;
+      app.classList.add("collapsed");
+    }
+  }
+
   function selectThread(id) {
     state.activeId = id;
     renderGroups();
     renderThread();
+    collapseSidebarOnMobile();
   }
 
   function startDraft(text) {
@@ -666,6 +696,7 @@
     draftEl.value = text || "";
     autosize();
     renderSend();
+    collapseSidebarOnMobile();
     draftEl.focus();
   }
 
@@ -1025,6 +1056,11 @@
   }
 
   /* ---------- Events ---------- */
+  el("backdrop").addEventListener("click", function () {
+    state.sidebarCollapsed = true;
+    app.classList.add("collapsed");
+  });
+
   el("collapseBtn").addEventListener("click", function () {
     state.sidebarCollapsed = true;
     app.classList.add("collapsed");
@@ -1246,6 +1282,10 @@
   }
 
   function startUi() {
+    if (isMobile()) {
+      state.sidebarCollapsed = true;
+      app.classList.add("collapsed");
+    }
     state.activeId = "_new";
     newThread = { title: "Ny chat", messages: [] };
     renderGroups();
