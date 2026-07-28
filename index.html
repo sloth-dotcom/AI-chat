@@ -297,11 +297,14 @@
         <div class="kb">
           <div class="kb-head">
             <div class="group-label">Vidensbase</div>
+            <button class="ghost-btn kb-add" id="kbLinkBtn" title="Importér Google Docs/Sheets-link">
+              <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M137.54 186.36a8 8 0 0 1 0 11.31l-9.94 10A56 56 0 0 1 48.38 128.4L72.5 104.28A56 56 0 0 1 149.31 102a8 8 0 1 1-10.64 11.95 40 40 0 0 0-54.85 1.63L59.7 139.72a40 40 0 0 0 56.58 56.58l9.94-9.94a8 8 0 0 1 11.32 0Zm70.08-138a56.08 56.08 0 0 0-79.22 0l-9.94 9.95a8 8 0 0 0 11.32 11.31l9.94-9.94a40 40 0 0 1 56.58 56.58l-24.12 24.12a40 40 0 0 1-54.85 1.6A8 8 0 1 0 106.69 154a56 56 0 0 0 76.81-2.26l24.12-24.12a56.08 56.08 0 0 0 0-79.24Z"/></svg>
+            </button>
             <button class="ghost-btn kb-add" id="kbAddBtn" title="Upload dokument">
               <svg width="15" height="15" viewBox="0 0 256 256" fill="currentColor"><path d="M224 128a8 8 0 0 1-8 8h-80v80a8 8 0 0 1-16 0v-80H40a8 8 0 0 1 0-16h80V40a8 8 0 0 1 16 0v80h80a8 8 0 0 1 8 8Z"/></svg>
             </button>
           </div>
-          <input type="file" id="kbFileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,text/*,application/pdf,application/json">
+          <input type="file" id="kbFileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,.docx,.xlsx,.xls,text/*,application/pdf,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
           <div id="docs"></div>
         </div>
 
@@ -376,7 +379,7 @@
 
         <div class="attach-row" id="attachRow" style="display:none"></div>
         <div class="attach-err" id="attachErr" style="display:none"></div>
-        <input type="file" id="fileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,text/*,application/pdf,application/json">
+        <input type="file" id="fileInput" multiple hidden accept=".txt,.md,.markdown,.csv,.json,.log,.xml,.yml,.yaml,.htm,.html,.css,.js,.ts,.py,.pdf,.docx,.xlsx,.xls,text/*,application/pdf,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
 
         <div class="input-row" id="inputRow">
           <button class="ghost-btn attach-btn" id="attachBtn" title="Vedhæft dokument">
@@ -453,7 +456,12 @@
     }
   }
 
-  function docType(name) { return /\.pdf$/i.test(name) ? "PDF" : "Tekst"; }
+  function docType(name) {
+    if (/\.pdf$/i.test(name)) return "PDF";
+    if (/\.docx$/i.test(name)) return "Word";
+    if (/\.(xlsx|xls)$/i.test(name)) return "Regneark";
+    return "Tekst";
+  }
 
   var baseSuggestions = [
     { label: "Opsummér et dokument", icon: ICONS.doc },
@@ -557,7 +565,7 @@
   /* ---------- Knowledge base ---------- */
   function renderDocs() {
     if (!kbDocs.length) {
-      el("docs").innerHTML = '<div class="kb-empty">Ingen dokumenter endnu — klik + for at uploade tekstfiler eller PDF.</div>';
+      el("docs").innerHTML = '<div class="kb-empty">Ingen dokumenter endnu — upload tekst, PDF, Word eller Excel, eller indsæt et Google Docs-link.</div>';
       return;
     }
     el("docs").innerHTML = kbDocs.map(function (d) {
@@ -741,6 +749,8 @@
   /* ---------- Attachments ---------- */
   var PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
   var PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  var MAMMOTH_URL = "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js";
+  var SHEETJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
   var TEXT_EXT = /\.(txt|md|markdown|csv|json|log|xml|yml|yaml|html?|css|js|ts|jsx|tsx|py|java|c|h|cpp|sql|sh)$/i;
   var MAX_FILE_BYTES = 5 * 1024 * 1024;
   var MAX_CHARS_PER_FILE = 30000;
@@ -780,21 +790,44 @@
     renderSend();
   }
 
+  function loadScript(url, globalName, errName) {
+    return new Promise(function (resolve, reject) {
+      if (window[globalName]) { resolve(window[globalName]); return; }
+      var s = document.createElement("script");
+      s.src = url;
+      s.onload = function () { resolve(window[globalName]); };
+      s.onerror = function () { reject(new Error("kunne ikke indlæse " + errName)); };
+      document.head.appendChild(s);
+    });
+  }
+
   function loadPdfJs() {
     if (!pdfjsPromise) {
-      pdfjsPromise = new Promise(function (resolve, reject) {
-        if (window.pdfjsLib) { resolve(window.pdfjsLib); return; }
-        var s = document.createElement("script");
-        s.src = PDFJS_URL;
-        s.onload = function () {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-          resolve(window.pdfjsLib);
-        };
-        s.onerror = function () { pdfjsPromise = null; reject(new Error("kunne ikke indlæse PDF-læseren")); };
-        document.head.appendChild(s);
-      });
+      pdfjsPromise = loadScript(PDFJS_URL, "pdfjsLib", "PDF-læseren").then(function (lib) {
+        lib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+        return lib;
+      }).catch(function (e) { pdfjsPromise = null; throw e; });
     }
     return pdfjsPromise;
+  }
+
+  function extractDocx(file) {
+    return loadScript(MAMMOTH_URL, "mammoth", "Word-læseren").then(function (mammoth) {
+      return file.arrayBuffer().then(function (buf) {
+        return mammoth.extractRawText({ arrayBuffer: buf });
+      }).then(function (res) { return res.value || ""; });
+    });
+  }
+
+  function extractXlsx(file) {
+    return loadScript(SHEETJS_URL, "XLSX", "regnearks-læseren").then(function (XLSX) {
+      return file.arrayBuffer().then(function (buf) {
+        var wb = XLSX.read(buf, { type: "array" });
+        return wb.SheetNames.map(function (name) {
+          return "[Ark: " + name + "]\n" + XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+        }).join("\n\n");
+      });
+    });
   }
 
   function extractPdf(file) {
@@ -818,17 +851,26 @@
     });
   }
 
+  function fileKind(file) {
+    if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") return "pdf";
+    if (/\.docx$/i.test(file.name)) return "docx";
+    if (/\.(xlsx|xls)$/i.test(file.name)) return "xlsx";
+    if (TEXT_EXT.test(file.name) || (file.type && file.type.indexOf("text/") === 0) || file.type === "application/json") return "text";
+    return null;
+  }
+
   function fileTypeError(file) {
     if (file.size > MAX_FILE_BYTES) return '"' + file.name + '" er for stor (maks 5 MB).';
-    var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
-    var isText = TEXT_EXT.test(file.name) || (file.type && file.type.indexOf("text/") === 0) || file.type === "application/json";
-    if (!isPdf && !isText) return '"' + file.name + '" understøttes ikke — vedhæft tekstfiler eller PDF.';
+    if (!fileKind(file)) return '"' + file.name + '" understøttes ikke — brug tekst, PDF, Word (docx) eller Excel (xlsx).';
     return null;
   }
 
   function readFileText(file) {
-    var isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
-    var read = isPdf ? extractPdf(file) : file.text();
+    var kind = fileKind(file);
+    var read = kind === "pdf" ? extractPdf(file)
+      : kind === "docx" ? extractDocx(file)
+      : kind === "xlsx" ? extractXlsx(file)
+      : file.text();
     return read.then(function (text) {
       text = String(text || "").trim();
       if (text.length > MAX_CHARS_PER_FILE) text = text.slice(0, MAX_CHARS_PER_FILE) + "\n… [afkortet]";
@@ -1208,6 +1250,33 @@
     fetch("/api/mcp?id=" + encodeURIComponent(id), { method: "DELETE" }).catch(function () {});
     mcpServers = mcpServers.filter(function (s) { return s.id !== id; });
     renderMcp();
+  });
+
+  el("kbLinkBtn").addEventListener("click", function () {
+    var url = window.prompt("Indsæt link til et offentligt Google Docs- eller Sheets-dokument:");
+    if (!url || !url.trim()) return;
+    var entry = { id: "kb" + Date.now() + "-" + (++attachSeq), name: "Google-dokument", size: 0, text: "", loading: true };
+    kbDocs.push(entry);
+    renderDocs();
+    fetch("/api/fetchdoc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim() })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
+    }).then(function (res) {
+      if (!res.ok) throw new Error(res.j.error || "Import fejlede.");
+      entry.name = res.j.name;
+      entry.size = res.j.size || res.j.text.length;
+      entry.text = res.j.text;
+      entry.loading = false;
+      saveKb();
+      renderDocs();
+    }).catch(function (e2) {
+      kbDocs = kbDocs.filter(function (d) { return d !== entry; });
+      showAttachErr(e2.message);
+      renderDocs();
+    });
   });
 
   el("kbAddBtn").addEventListener("click", function () { el("kbFileInput").click(); });

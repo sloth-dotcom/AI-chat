@@ -4,6 +4,7 @@
 // runs (model → MCP tools/call → model) and the final answer is emitted as SSE.
 const { readSession } = require("./_lib.js");
 const { loadServers, callTool } = require("./_mcp.js");
+const { WIDGET_KB } = require("./_widgetkb.js");
 
 const PROVIDERS = {
   "GLM-5.2": {
@@ -112,10 +113,11 @@ module.exports = async function handler(req, res) {
       res.status(429).json({ error: "For mange beskeder herfra — prøv igen om lidt." });
       return;
     }
-    // Widget sessions are cost-capped: always router-Auto, no KB, no MCP,
-    // bounded history.
+    // Widget sessions are cost-capped: always router-Auto, no MCP, bounded
+    // history. KB is the FIXED site knowledge (pricing, license, FAQ) so the
+    // widget answers consistently with the site it lives on.
     model = "Auto";
-    kb = undefined;
+    kb = WIDGET_KB;
     if (Array.isArray(messages)) {
       messages = messages.slice(-12).map((m) => ({
         role: m.role,
