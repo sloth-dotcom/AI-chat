@@ -78,18 +78,51 @@ function sseSend(res, obj) {
   res.write("data: " + JSON.stringify(obj) + "\n\n");
 }
 
+// Anonymous widget traffic: per-IP sliding-window rate limit (per function
+// instance — a determent, not a fortress; the router's tenant budget cap is
+// the hard backstop).
+const widgetHits = new Map();
+function widgetAllow(ip) {
+  const now = Date.now();
+  const hits = (widgetHits.get(ip) || []).filter((t) => now - t < 24 * 3600 * 1000);
+  const lastMin = hits.filter((t) => now - t < 60 * 1000);
+  if (lastMin.length >= 8 || hits.length >= 60) return false;
+  hits.push(now);
+  widgetHits.set(ip, hits);
+  if (widgetHits.size > 5000) widgetHits.clear(); // crude memory guard
+  return true;
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
+  let { messages, model, kb, threadId } = req.body || {};
+  const isWidget = (req.body || {}).widget === true;
+
   const sess = readSession(req);
-  if (!sess) {
+  if (!sess && !isWidget) {
     res.status(401).json({ error: "Ikke logget ind — log ind for at chatte." });
     return;
   }
-
-  const { messages, model, kb, threadId } = req.body || {};
+  if (isWidget) {
+    const ip = String(req.headers["x-forwarded-for"] || "").split(",")[0].trim() || "ukendt";
+    if (!widgetAllow(ip)) {
+      res.status(429).json({ error: "For mange beskeder herfra — prøv igen om lidt." });
+      return;
+    }
+    // Widget sessions are cost-capped: always router-Auto, no KB, no MCP,
+    // bounded history.
+    model = "Auto";
+    kb = undefined;
+    if (Array.isArray(messages)) {
+      messages = messages.slice(-12).map((m) => ({
+        role: m.role,
+        content: typeof m.content === "string" ? m.content.slice(0, 4000) : m.content,
+      }));
+    }
+  }
 
   if (!Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: "messages mangler" });
@@ -201,7 +234,7 @@ module.exports = async function handler(req, res) {
   // ---------- MCP tool definitions ----------
   let mcpServers = [];
   try {
-    mcpServers = await loadServers(sess.email);
+    if (!isWidget && sess) mcpServers = await loadServers(sess.email);
   } catch (e) { /* no integrations */ }
 
   const toolDefs = [];
