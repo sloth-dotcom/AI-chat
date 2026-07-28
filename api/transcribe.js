@@ -53,6 +53,13 @@ module.exports = async function handler(req, res) {
   const form = new FormData();
   form.append("file", new Blob([audio], { type: mime }), "tale." + ext);
   form.append("model", process.env.VOXTRAL_MODEL || "voxtral-mini-latest");
+  // Voxtral's language param does NOT support Danish (only ar/en/de/es/fr/hi/
+  // it/nl/pt/zh/ru/ko/ja) — Danish works via auto-detect. Only pin when a
+  // supported override is configured.
+  const VOXTRAL_LANGS = ["ar", "en", "de", "es", "fr", "hi", "it", "nl", "pt", "zh", "ru", "ko", "ja"];
+  if (VOXTRAL_LANGS.includes(process.env.VOICE_LANGUAGE)) {
+    form.append("language", process.env.VOICE_LANGUAGE);
+  }
 
   try {
     const r = await fetch("https://api.mistral.ai/v1/audio/transcriptions", {
@@ -67,7 +74,13 @@ module.exports = async function handler(req, res) {
       return;
     }
     const data = await r.json();
-    res.json({ text: String(data.text || "").trim() });
+    let text = String(data.text || "").trim();
+    // Dansk ordliste: ret hyppige fejlhøringer af domænenavne/-termer.
+    text = text
+      .replace(/\b[ck]ol+ou?r?\s?-?\s?bo+[ck]?x?s?\b/gi, "Colourbox")
+      .replace(/\bkul\w*\s?bo+[ck]?s?\b/gi, "Colourbox")
+      .replace(/\bstock ?flow\b/gi, "Stockflow");
+    res.json({ text });
   } catch (e) {
     res.status(502).json({ error: "Transskription fejlede: " + e.message });
   }
