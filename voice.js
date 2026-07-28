@@ -26,12 +26,81 @@
     clearTimeout(maxTimer);
   }
 
+  // ---- Dansk sprog-primer ----
+  // Voxtral kan ikke låses til dansk (language-param understøtter ikke 'da'),
+  // og korte klip fejl-detekteres som andre sprog. Løsning: et kendt dansk
+  // primer-klip sættes foran optagelsen, så sprogdetektionen kalibreres —
+  // serveren klipper primer-teksten af transskriptionen igen.
+  var primerPromise = null;
+  function loadPrimer(ctx) {
+    if (!primerPromise) {
+      primerPromise = fetch("primer.wav")
+        .then(function (r) { return r.arrayBuffer(); })
+        .then(function (ab) { return ctx.decodeAudioData(ab); })
+        .catch(function () { return null; });
+    }
+    return primerPromise;
+  }
+
+  function toMono16k(buffer) {
+    var off = new OfflineAudioContext(1, Math.ceil(buffer.duration * 16000) || 1, 16000);
+    var src = off.createBufferSource();
+    src.buffer = buffer;
+    src.connect(off.destination);
+    src.start();
+    return off.startRendering();
+  }
+
+  function encodeWav(samples, rate) {
+    var len = samples.length;
+    var buf = new ArrayBuffer(44 + len * 2);
+    var v = new DataView(buf);
+    function ws(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    ws(0, "RIFF"); v.setUint32(4, 36 + len * 2, true); ws(8, "WAVE"); ws(12, "fmt ");
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    ws(36, "data"); v.setUint32(40, len * 2, true);
+    for (var i = 0; i < len; i++) {
+      var s = Math.max(-1, Math.min(1, samples[i]));
+      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+    return new Blob([buf], { type: "audio/wav" });
+  }
+
+  function prepareUpload(blob) {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC || !window.OfflineAudioContext) return Promise.resolve(blob);
+    var ctx = new AC();
+    return blob.arrayBuffer()
+      .then(function (ab) { return ctx.decodeAudioData(ab); })
+      .then(function (user) {
+        return loadPrimer(ctx).then(function (primer) {
+          return Promise.all([primer ? toMono16k(primer) : null, toMono16k(user)]);
+        });
+      })
+      .then(function (bufs) {
+        var p = bufs[0], u = bufs[1];
+        var out = new Float32Array((p ? p.length : 0) + u.length);
+        if (p) out.set(p.getChannelData(0), 0);
+        out.set(u.getChannelData(0), p ? p.length : 0);
+        try { ctx.close(); } catch (e) { /* noop */ }
+        return encodeWav(out, 16000);
+      })
+      .catch(function () {
+        try { ctx.close(); } catch (e) { /* noop */ }
+        return blob; // fallback: rå optagelse uden primer
+      });
+  }
+
   function transcribe(blob, opts) {
     state = "transcribing";
     opts.onState(state);
-    var headers = { "Content-Type": "application/octet-stream", "x-audio-type": blob.type || "audio/webm" };
-    if (opts.widget) headers["x-widget"] = "1";
-    fetch("/api/transcribe", { method: "POST", headers: headers, body: blob })
+    prepareUpload(blob).then(function (upload) {
+      var headers = { "Content-Type": "application/octet-stream", "x-audio-type": upload.type || "audio/webm" };
+      if (opts.widget) headers["x-widget"] = "1";
+      return fetch("/api/transcribe", { method: "POST", headers: headers, body: upload });
+    })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; });
       })

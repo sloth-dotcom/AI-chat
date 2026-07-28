@@ -75,6 +75,9 @@ module.exports = async function handler(req, res) {
     }
     const data = await r.json();
     let text = String(data.text || "").trim();
+    // Klip den danske sprog-primer af (klienten sætter et kendt klip foran
+    // optagelsen for at kalibrere Voxtrals sprogdetektion — se voice.js).
+    text = text.replace(/^[\s"']*dette er en samtale p[åa] dansk[\s.!?,]*/i, "").trim();
     // Dansk ordliste: ret hyppige fejlhøringer af domænenavne/-termer.
     text = text
       .replace(/\b[ck]ol+ou?r?\s?-?\s?bo+[ck]?x?s?\b/gi, "Colourbox")
