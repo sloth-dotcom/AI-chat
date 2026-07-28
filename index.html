@@ -164,6 +164,9 @@
   .input-row{display:flex;align-items:flex-end;gap:10px;border:1px solid var(--line-strong);background:var(--panel);border-radius:14px;padding:8px;transition:border-color .15s}
   .input-row:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .input-row.drag{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  #micBtn.rec{background:#FEF5F2;color:#E2400B;animation:micpulse 1.2s infinite}
+  #micBtn.busy{color:var(--accent);cursor:wait}
+  @keyframes micpulse{0%,100%{box-shadow:0 0 0 0 rgba(226,64,11,.25)}50%{box-shadow:0 0 0 6px rgba(226,64,11,.10)}}
 
   .attach-row{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 8px}
   .attach-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line-strong);background:var(--panel);border-radius:9px;font-size:12.5px;color:var(--text);max-width:280px}
@@ -356,6 +359,9 @@
             <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M209.66 122.34a8 8 0 0 1 0 11.32l-82.05 82a56 56 0 0 1-79.2-79.2l84.68-84.69a40 40 0 0 1 56.57 56.57L104.4 193.14a24 24 0 0 1-33.94-33.94L149.66 80a8 8 0 0 1 11.31 11.31L81.8 170.51a8 8 0 0 0 11.31 11.32l84.69-84.69a24 24 0 0 0-33.94-33.94L59.16 148A40 40 0 0 0 115.72 204.55l82.62-82.21a8 8 0 0 1 11.32 0Z"/></svg>
           </button>
           <textarea id="draft" rows="1" placeholder="Skriv en besked…"></textarea>
+          <button class="ghost-btn attach-btn" id="micBtn" title="Tal til assistenten">
+            <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg>
+          </button>
           <button class="send-btn" id="sendBtn" title="Send">
             <svg width="19" height="19" viewBox="0 0 256 256" fill="currentColor"><path d="M231.87 114 88.15 30.62A16 16 0 0 0 64.42 48.4l16.19 71.6-16.19 71.6a16 16 0 0 0 23.73 17.77L231.87 142a16 16 0 0 0 0-28Zm-135.31 68 12.28-54.34H160a8 8 0 0 0 0-16H108.84L96.56 57.36 219.28 128Z"/></svg>
           </button>
@@ -372,6 +378,7 @@
   </main>
 </div>
 
+<script src="voice.js"></script>
 <script>
 (function () {
   "use strict";
@@ -397,6 +404,7 @@
     activeId: "_new"
   };
   var currentUser = null;
+  var voiceNext = false;   // næste svar læses op
 
   var models = [
     { id: "Auto", name: "Auto", pill: "EU", desc: "Routeren vælger den bedste model til opgaven" },
@@ -870,7 +878,9 @@
     });
     pendingFiles = [];
     renderAttachRow();
-    var reply = { role: "assistant", text: "", streaming: true };
+    if (window.CbxVoice) CbxVoice.stopSpeak();
+    var reply = { role: "assistant", text: "", streaming: true, speak: voiceNext };
+    voiceNext = false;
     thread.messages.push(reply);
     draftEl.value = "";
     autosize();
@@ -1010,6 +1020,7 @@
       thread.updatedAt = Date.now();
       saveChats();
       rerender();
+      if (reply.speak && !reply.error && window.CbxVoice) CbxVoice.speak(reply.text);
     });
   }
 
@@ -1186,6 +1197,28 @@
   });
   inputRow.addEventListener("drop", function (e) {
     if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  el("micBtn").addEventListener("click", function () {
+    if (!window.CbxVoice) return;
+    var micBtn = el("micBtn");
+    CbxVoice.toggle({
+      widget: false,
+      onState: function (st) {
+        micBtn.classList.toggle("rec", st === "recording");
+        micBtn.classList.toggle("busy", st === "transcribing");
+        micBtn.title = st === "recording" ? "Optager — tryk for at stoppe"
+          : st === "transcribing" ? "Transskriberer…" : "Tal til assistenten";
+      },
+      onText: function (text) {
+        draftEl.value = text;
+        autosize();
+        renderSend();
+        voiceNext = true;
+        send();
+      },
+      onError: function (msg) { showAttachErr(msg); }
+    });
   });
 
   draftEl.addEventListener("input", function () { autosize(); renderSend(); });

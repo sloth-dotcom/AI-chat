@@ -42,6 +42,11 @@
   .row{display:flex;gap:8px;align-items:flex-end}
   textarea{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:13.5px;line-height:1.4;resize:none;outline:none;max-height:110px;color:var(--text)}
   textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .mic{width:38px;height:38px;flex:none;border:none;border-radius:9px;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .mic:hover{background:#F5F6F8;color:var(--text)}
+  .mic.rec{background:#FEF5F2;color:#E2400B;animation:pulse 1.2s infinite}
+  .mic.busy{color:var(--accent);cursor:wait}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,64,11,.25)}50%{box-shadow:0 0 0 6px rgba(226,64,11,.10)}}
   .send{width:38px;height:38px;flex:none;border:none;border-radius:9px;background:#EAEAEE;color:#9DA1A6;display:flex;align-items:center;justify-content:center;cursor:not-allowed;transition:background .15s}
   .send.ready{background:var(--accent);color:#fff;cursor:pointer}
   .send.ready:hover{background:var(--accent-hover)}
@@ -60,17 +65,20 @@
   <div class="thread" id="thread"></div>
   <div class="foot">
     <div class="row">
+      <button class="mic" id="micBtn" title="Tal til assistenten"><svg width="17" height="17" viewBox="0 0 256 256" fill="currentColor"><path d="M128 176a48.05 48.05 0 0 0 48-48V64a48 48 0 0 0-96 0v64a48.05 48.05 0 0 0 48 48ZM96 64a32 32 0 0 1 64 0v64a32 32 0 0 1-64 0Zm40 143.6V232a8 8 0 0 1-16 0v-24.4A80.11 80.11 0 0 1 48 128a8 8 0 0 1 16 0 64 64 0 0 0 128 0 8 8 0 0 1 16 0 80.11 80.11 0 0 1-72 79.6Z"/></svg></button>
       <textarea id="draft" rows="1" placeholder="Skriv en besked…"></textarea>
       <button class="send" id="sendBtn" title="Send"><svg width="17" height="17" viewBox="0 0 256 256" fill="currentColor"><path d="M231.87 114 88.15 30.62A16 16 0 0 0 64.42 48.4l16.19 71.6-16.19 71.6a16 16 0 0 0 23.73 17.77L231.87 142a16 16 0 0 0 0-28Zm-135.31 68 12.28-54.34H160a8 8 0 0 0 0-16H108.84L96.56 57.36 219.28 128Z"/></svg></button>
     </div>
     <div class="fine">Data forbliver i EU · GDPR-compliant</div>
   </div>
 
+<script src="voice.js"></script>
 <script>
 (function () {
   "use strict";
   var messages = [];   // {role, text, error?}
   var streaming = false;
+  var voiceNext = false;   // næste svar læses op
   var threadId = "w" + Date.now();
   var el = function (id) { return document.getElementById(id); };
   var draft = el("draft");
@@ -110,8 +118,10 @@
   function send() {
     var text = draft.value.trim();
     if (!text || streaming) return;
+    if (window.CbxVoice) CbxVoice.stopSpeak();
     messages.push({ role: "user", text: text });
-    var reply = { role: "assistant", text: "", streaming: true };
+    var reply = { role: "assistant", text: "", streaming: true, speak: voiceNext };
+    voiceNext = false;
     messages.push(reply);
     draft.value = "";
     autosize();
@@ -177,8 +187,34 @@
       streaming = false;
       render();
       renderSend();
+      if (reply.speak && !reply.error && window.CbxVoice) CbxVoice.speak(reply.text);
     });
   }
+
+  var micBtn = el("micBtn");
+  micBtn.addEventListener("click", function () {
+    if (!window.CbxVoice) return;
+    CbxVoice.toggle({
+      widget: true,
+      onState: function (s) {
+        micBtn.classList.toggle("rec", s === "recording");
+        micBtn.classList.toggle("busy", s === "transcribing");
+        micBtn.title = s === "recording" ? "Optager — tryk for at stoppe"
+          : s === "transcribing" ? "Transskriberer…" : "Tal til assistenten";
+      },
+      onText: function (text) {
+        draft.value = text;
+        autosize();
+        renderSend();
+        voiceNext = true;
+        send();
+      },
+      onError: function (msg) {
+        messages.push({ role: "assistant", text: msg, error: true });
+        render();
+      }
+    });
+  });
 
   el("sendBtn").addEventListener("click", send);
   draft.addEventListener("input", function () { autosize(); renderSend(); });
