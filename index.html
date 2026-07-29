@@ -226,6 +226,7 @@
 
   /* ---------- Mobil (iPhone-app + mobil-Safari) ---------- */
   .backdrop{display:none}
+  @media (max-width:700px){ body.app-active [data-cbx-widget]{display:none !important} }
   @media (max-width:700px){
     .sidebar{position:fixed;left:0;top:0;bottom:0;z-index:60;box-shadow:0 0 40px rgba(12,21,48,.25)}
     .app.collapsed .sidebar{box-shadow:none}
@@ -405,6 +406,7 @@
   </main>
 </div>
 
+<script src="/embed.js" defer></script>
 <script src="voice.js"></script>
 <script>
 (function () {
@@ -1345,6 +1347,7 @@
     currentUser = null;
     el("app").style.display = "none";
     el("loginScreen").style.display = "flex";
+    document.body.classList.remove("app-active");
     el("loginEmail").focus();
   }
 
@@ -1354,6 +1357,7 @@
     el("userRole").textContent = user.role || "";
     el("loginScreen").style.display = "none";
     el("app").style.display = "flex";
+    document.body.classList.add("app-active");
   }
 
   function startUi() {

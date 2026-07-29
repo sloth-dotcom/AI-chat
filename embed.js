@@ -20,6 +20,7 @@
 
   var btn = document.createElement("button");
   btn.setAttribute("aria-label", "Åbn Colourbox AI-chat");
+  btn.setAttribute("data-cbx-widget", "btn");
   btn.style.cssText =
     "position:fixed;bottom:20px;right:20px;width:56px;height:56px;border:none;" +
     "border-radius:50%;background:#0D68E8;color:#fff;cursor:pointer;z-index:2147483000;" +
@@ -31,6 +32,7 @@
   btn.onmouseleave = function () { btn.style.transform = "scale(1)"; };
 
   var panel = document.createElement("div");
+  panel.setAttribute("data-cbx-widget", "panel");
   panel.style.cssText =
     "position:fixed;bottom:90px;right:20px;width:380px;height:560px;" +
     "max-width:calc(100vw - 24px);max-height:calc(100vh - 110px);" +
