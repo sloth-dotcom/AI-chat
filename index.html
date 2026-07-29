@@ -85,6 +85,19 @@
   .doc-del:hover{background:#EAEAEE;color:#E2400B}
   .kb-empty{padding:8px;font-size:12px;color:var(--muted-2);line-height:1.5}
 
+  /* Forslag til datakilder (foldbar eksempel-sektion) */
+  .suggest-head{cursor:pointer;user-select:none}
+  .suggest-head:hover .group-label{color:var(--muted)}
+  .suggest-chevron{transition:transform .18s;color:var(--muted-2)}
+  .suggest-head.open .suggest-chevron{transform:rotate(180deg)}
+  .suggest-sub{padding:0 8px 6px;font-size:11px;color:var(--muted-2);line-height:1.45}
+  .suggest-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer;opacity:.75}
+  .suggest-row:hover{background:#F5F6F8;opacity:1}
+  .suggest-icon{width:28px;height:28px;flex:none;border-radius:7px;border:1px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .suggest-row:hover .suggest-icon{color:var(--accent);border-color:var(--accent)}
+  .suggest-name{font-size:12.5px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .suggest-meta{font-size:11px;color:var(--muted-2)}
+
   .mcp-input{width:100%;height:34px;padding:0 10px;border:1px solid var(--line);background:var(--panel);border-radius:7px;font-size:12.5px;color:var(--text);outline:none;font-family:inherit;margin-top:6px}
   .mcp-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .mcp-btn{height:30px;padding:0 12px;border:none;border-radius:7px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
@@ -327,6 +340,45 @@
             <div class="attach-err" id="mcpErr" style="display:none;padding:6px 0 0"></div>
           </div>
           <div id="mcpList"></div>
+        </div>
+
+        <!-- Forslag til datakilder (eksempler, foldet som standard) -->
+        <div class="kb">
+          <div class="kb-head suggest-head" id="suggestHead">
+            <div class="group-label">Forslag til datakilder</div>
+            <svg class="suggest-chevron" width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z"/></svg>
+          </div>
+          <div id="suggestBody" style="display:none">
+            <div class="suggest-sub">Eksempler på indhold, der gør svarene skarpere — klik for at uploade eller forbinde.</div>
+            <div class="suggest-row" data-suggest="upload" title="Upload dit eget dokument">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">Prisliste 2026.pdf</div><div class="suggest-meta">eksempel · upload jeres egen</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="upload" title="Upload dit eget dokument">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">Licensvilkår – Stock og Share.pdf</div><div class="suggest-meta">eksempel · upload jeres egen</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="upload" title="Upload dit eget dokument">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M213.66 82.34l-56-56A8 8 0 0 0 152 24H56a16 16 0 0 0-16 16v176a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V88a8 8 0 0 0-2.34-5.66ZM152 88V44l44 44Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">FAQ – kundeservice.docx</div><div class="suggest-meta">eksempel · upload jeres egen</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="upload" title="Upload dit eget dokument">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H96a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v56h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h32v56H56Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">Q2-rapport 2026.xlsx</div><div class="suggest-meta">eksempel · upload jeres egen</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="google" title="Importér fra Google Docs/Sheets">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M160 40a88.09 88.09 0 0 0-78.71 48.67A64 64 0 1 0 72 216h88a88 88 0 0 0 0-176Zm0 160H72a48 48 0 0 1 0-96c1.1 0 2.2 0 3.29.11A88 88 0 0 0 72 128a8 8 0 0 0 16 0 72 72 0 1 1 72 72Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">Google Suite – Docs og Sheets</div><div class="suggest-meta">forbind · indsæt delt link nu</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="mcp" title="Tilføj som MCP-integration">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61-14.66 73.33a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.98-7.34Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">e-conomic – regnskab</div><div class="suggest-meta">forslag · omsætning og fakturaer</div></div>
+            </div>
+            <div class="suggest-row" data-suggest="mcp" title="Tilføj som MCP-integration">
+              <div class="suggest-icon"><svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M117.25 157.92a60 60 0 1 0-66.5 0 95.83 95.83 0 0 0-47.22 37.71 8 8 0 1 0 13.4 8.74 80 80 0 0 1 134.14 0 8 8 0 0 0 13.4-8.74 95.83 95.83 0 0 0-47.22-37.71ZM40 108a44 44 0 1 1 44 44 44.05 44.05 0 0 1-44-44Zm210.14 98.7a8 8 0 0 1-11.07-2.33A79.83 79.83 0 0 0 172 168a8 8 0 0 1 0-16 44 44 0 1 0-16.34-84.87 8 8 0 1 1-5.94-14.85 60 60 0 0 1 55.53 105.64 95.83 95.83 0 0 1 47.22 37.71 8 8 0 0 1-2.33 11.07Z"/></svg></div>
+              <div style="flex:1;min-width:0"><div class="suggest-name">HubSpot – CRM</div><div class="suggest-meta">forslag · kunder og pipeline</div></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1253,6 +1305,36 @@
     mcpServers = mcpServers.filter(function (s) { return s.id !== id; });
     renderMcp();
   });
+
+  // Forslag til datakilder: foldbar eksempel-sektion (foldet som standard)
+  (function () {
+    var head = el("suggestHead");
+    var body = el("suggestBody");
+    function setOpen(open) {
+      body.style.display = open ? "block" : "none";
+      head.classList.toggle("open", open);
+      try { localStorage.setItem("aiChatSuggestOpen", open ? "1" : "0"); } catch (e) { /* noop */ }
+    }
+    var saved = null;
+    try { saved = localStorage.getItem("aiChatSuggestOpen"); } catch (e) { /* noop */ }
+    setOpen(saved === "1");
+    head.addEventListener("click", function () {
+      setOpen(body.style.display === "none");
+    });
+    body.addEventListener("click", function (e) {
+      var row = e.target.closest(".suggest-row");
+      if (!row) return;
+      var kind = row.getAttribute("data-suggest");
+      if (kind === "upload") el("kbFileInput").click();
+      else if (kind === "google") el("kbLinkBtn").click();
+      else if (kind === "mcp") {
+        var f = el("mcpForm");
+        f.style.display = "block";
+        el("mcpName").focus();
+        f.scrollIntoView({ block: "nearest" });
+      }
+    });
+  })();
 
   el("kbLinkBtn").addEventListener("click", function () {
     var url = window.prompt("Indsæt link til et offentligt Google Docs- eller Sheets-dokument:");
